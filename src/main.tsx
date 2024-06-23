@@ -18,7 +18,7 @@ import getTheme from './getTheme.ts';
 
 console.log('App Version:', packageJson.version);
 
-const darkTheme = getTheme({mode: 'light'});
+const darkTheme = getTheme({mode: 'dark'});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
