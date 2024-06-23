@@ -10,20 +10,23 @@ type Props = {
   transactions: StandardTransactionType[];
 };
 
-export default function TransactionListItems({transactions}: Props) {
-  return (
+export default function TransactionListItems({
+  transactions,
+}: Props): React.ReactElement | React.ReactElement[] {
+  if (transactions.length === 0) {
+    return (
+      <ListItem key="single-item">
+        <ListItemText>No transactions found</ListItemText>
+      </ListItem>
+    );
+  }
+
+  return transactions.map((t, i) => (
     <>
-      {transactions.map((t, i) => (
-        <>
-          <ListItem key={t.id} secondaryAction={getFormattedAmount(t.amount)}>
-            <ListItemText
-              primary={`[${t.date}] ${t.payee}`}
-              secondary={t.memo}
-            />
-          </ListItem>
-          {i !== transactions.length - 1 && <Divider />}
-        </>
-      ))}
+      <ListItem key={t.id} secondaryAction={getFormattedAmount(t.amount)}>
+        <ListItemText primary={`[${t.date}] ${t.payee}`} secondary={t.memo} />
+      </ListItem>
+      {i !== transactions.length - 1 && <Divider />}
     </>
-  );
+  ));
 }

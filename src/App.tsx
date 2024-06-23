@@ -1,8 +1,10 @@
-import type {YnabCsvTransactionType} from './LabelTypes';
+import type {StandardTransactionType} from './LabelTypes';
+import type {MatchCandidate} from './Matching';
 import type {SelectChangeEvent} from '@mui/material/Select';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
 import InputLabel from '@mui/material/InputLabel';
@@ -28,6 +30,11 @@ import {
   convertYnabToStandardTransaction,
 } from './Converters';
 import {getParsedLabels} from './getParsedLabels';
+import MatchCandidateTable from './MatchCandidateTable';
+import {
+  getMatchCandidatesForAllLabels,
+  resolveBestMatchForLabels,
+} from './Matching';
 import TransactionListItems from './TransactionListItems';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
@@ -55,9 +62,13 @@ function App() {
     null,
   );
 
-  const [labels, _setLabels] = useState<YnabCsvTransactionType[]>(() =>
-    getParsedLabels(),
+  const [labels, _setLabels] = useState<StandardTransactionType[]>(() =>
+    convertYnabCsvToStandardTransaction(getParsedLabels()),
   );
+
+  const [matchCandidates, setMatchCandidates] = useState<
+    MatchCandidate[] | null
+  >(null);
 
   useEffect(() => {
     if (budgets == null) {
@@ -163,6 +174,7 @@ function App() {
                       setSelectedAccountID(null);
                       setAccounts(null);
                       setTransactions(null);
+                      setMatchCandidates(null);
                       setSelectedBudgetID(newBudgetID);
                     }
                   }}
@@ -201,6 +213,7 @@ function App() {
                           'New accountID selected. Clearing transactions',
                         );
                         setTransactions(null);
+                        setMatchCandidates(null);
                         setSelectedAccountID(newAccountID);
                       }
                     }}
@@ -262,17 +275,54 @@ function App() {
                           <ListItemText primary="No labels available" />
                         </ListItem>
                       ) : (
-                        <TransactionListItems
-                          transactions={convertYnabCsvToStandardTransaction(
-                            labels,
-                          )}
-                        />
+                        <TransactionListItems transactions={labels} />
                       )}
                     </List>
                   </Box>
                 )}
               </Grid>
             </Grid>
+
+            {transactions != null &&
+              transactions.length > 0 &&
+              labels != null &&
+              labels.length > 0 && (
+                <Box>
+                  <Button
+                    onClick={() => {
+                      const matchCandidates = getMatchCandidatesForAllLabels(
+                        labels,
+                        transactions,
+                      );
+                      console.debug('Match candidates generated');
+                      console.debug(matchCandidates);
+                      setMatchCandidates(matchCandidates);
+                    }}
+                    variant="contained">
+                    Generate match candidates
+                  </Button>
+                </Box>
+              )}
+
+            {matchCandidates != null &&
+              (matchCandidates.length === 0 ? (
+                <Typography>No matches found</Typography>
+              ) : (
+                <MatchCandidateTable
+                  label="Match Candidates"
+                  matchCandidates={matchCandidates}
+                />
+              ))}
+
+            {matchCandidates != null &&
+              (matchCandidates.length === 0 ? (
+                <Typography>No matches found</Typography>
+              ) : (
+                <MatchCandidateTable
+                  label="Finalized Matches"
+                  matchCandidates={resolveBestMatchForLabels(matchCandidates)}
+                />
+              ))}
           </Stack>
         </Paper>
       </Box>
