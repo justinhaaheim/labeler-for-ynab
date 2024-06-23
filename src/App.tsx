@@ -1,36 +1,53 @@
-import './App.css';
+import Box from '@mui/material/Box';
+// import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 
-import {useState} from 'react';
-
-import viteLogo from '/vite.svg';
-
-import reactLogo from './assets/react.svg';
+// import {useCallback, useMemo, useRef, useState} from 'react';
+import packageJson from '../package.json';
 
 function App() {
-  const [count, setCount] = useState(0);
-
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" rel="noreferrer" target="_blank">
-          <img alt="Vite logo" className="logo" src={viteLogo} />
-        </a>
-        <a href="https://react.dev" rel="noreferrer" target="_blank">
-          <img alt="React logo" className="logo react" src={reactLogo} />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <Box
+        sx={{
+          alignItems: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          minHeight: '100dvh',
+          position: 'relative',
+        }}>
+        <Paper
+          elevation={10}
+          sx={{
+            margin: {sm: 3, xs: 2},
+            paddingX: {sm: 3, xs: 1},
+            paddingY: {sm: 8, xs: 6},
+          }}>
+          <Stack spacing={{sm: 10, xs: 7}}>
+            <Box>
+              <Typography variant="h1">YNAB Labeler</Typography>
+            </Box>
+
+            <Box>Contents here</Box>
+          </Stack>
+        </Paper>
+      </Box>
+
+      <Typography
+        component="div"
+        sx={{
+          bottom: '2px',
+          fontSize: 12,
+          left: '50%',
+          opacity: 0.1,
+          position: 'absolute',
+          transform: 'translateX(-50%)',
+        }}>
+        {`v${packageJson.version}`}
+      </Typography>
     </>
   );
 }
