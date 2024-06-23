@@ -1,5 +1,5 @@
 import type {SelectChangeEvent} from '@mui/material/Select';
-import type {BudgetSummary} from 'ynab';
+import type {Account, BudgetSummary} from 'ynab';
 
 import Box from '@mui/material/Box';
 import FormControl from '@mui/material/FormControl';
@@ -18,7 +18,11 @@ import {useEffect, useState} from 'react';
 import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
+// accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
+import accountsCachedJson from './accountsCached.local.json';
 import budgetsCachedJson from './budgetsCached.local.json';
+
+const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
 const USE_CACHED_RESPONSES = true;
 const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
@@ -31,10 +35,16 @@ function App() {
   const [budgets, setBudgets] = useState<BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
 
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [selectedAccountID, setSelectedAccountID] = useState<string | null>(
+    null,
+  );
+
   useEffect(() => {
     if (budgets == null) {
       if (!USE_CACHED_RESPONSES) {
         (async function () {
+          console.debug('📡 Fetching budgets data...');
           const budgetsResponse = await ynabAPI.budgets.getBudgets();
           setBudgets(budgetsResponse.data.budgets);
         })();
@@ -46,6 +56,27 @@ function App() {
       }
     }
   }, [budgets]);
+
+  useEffect(() => {
+    if (selectedBudgetID != null && accounts == null) {
+      if (
+        USE_CACHED_RESPONSES &&
+        selectedBudgetID === budgetIDForCachedAccounts
+      ) {
+        console.debug('Using cached accounts data');
+        setTimeout(() => {
+          setAccounts(accountsCachedJson as Account[]);
+        }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
+      } else {
+        (async function () {
+          console.debug('📡 Fetching accounts data...');
+          const accountsResponse =
+            await ynabAPI.accounts.getAccounts(selectedBudgetID);
+          setAccounts(accountsResponse.data.accounts);
+        })();
+      }
+    }
+  }, [accounts, selectedBudgetID]);
 
   return (
     <>
@@ -84,18 +115,55 @@ function App() {
                     setSelectedBudgetID(event.target.value as string);
                   }}
                   value={selectedBudgetID ?? ''}>
-                  {budgets == null || budgets.length === 0 ? (
-                    <MenuItem key="loading">{'Loading budgets...'}</MenuItem>
-                  ) : (
-                    budgets?.map((budget) => (
-                      <MenuItem key={budget.id} value={budget.id}>
-                        {budget.name}
-                      </MenuItem>
-                    ))
-                  )}
+                  {
+                    // TODO: better handling when empty array is returned
+                    budgets == null || budgets.length === 0 ? (
+                      <MenuItem key="loading">{'Loading budgets...'}</MenuItem>
+                    ) : (
+                      budgets?.map((budget) => (
+                        <MenuItem key={budget.id} value={budget.id}>
+                          {budget.name}
+                        </MenuItem>
+                      ))
+                    )
+                  }
                 </Select>
               </FormControl>
             </Box>
+
+            {selectedBudgetID != null && (
+              <Box sx={{minWidth: 120}}>
+                <FormControl fullWidth>
+                  <InputLabel id="account-selector-label-id">
+                    Select your account
+                  </InputLabel>
+                  <Select
+                    id="account-selector"
+                    label="Select your account"
+                    labelId="account-selector-label-id"
+                    onChange={(event: SelectChangeEvent) => {
+                      console.log(event);
+                      setSelectedAccountID(event.target.value as string);
+                    }}
+                    value={selectedAccountID ?? ''}>
+                    {
+                      // TODO: better handling when empty array is returned
+                      accounts == null || accounts.length === 0 ? (
+                        <MenuItem key="loading">
+                          {'Loading accounts...'}
+                        </MenuItem>
+                      ) : (
+                        accounts?.map((account) => (
+                          <MenuItem key={account.id} value={account.id}>
+                            {account.name}
+                          </MenuItem>
+                        ))
+                      )
+                    }
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
           </Stack>
         </Paper>
       </Box>
