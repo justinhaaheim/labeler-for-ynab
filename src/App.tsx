@@ -1,8 +1,10 @@
+import type {YnabCsvTransactionType} from './LabelTypes';
 import type {SelectChangeEvent} from '@mui/material/Select';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 
 import Box from '@mui/material/Box';
 import FormControl from '@mui/material/FormControl';
+import Grid from '@mui/material/Grid';
 import InputLabel from '@mui/material/InputLabel';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -21,7 +23,12 @@ import packageJson from '../package.json';
 // accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
 import accountsCachedJson from './accountsCached.local.json';
 import budgetsCachedJson from './budgetsCached.local.json';
-import getFormattedAmount from './getFormattedAmount';
+import {
+  convertYnabCsvToStandardTransaction,
+  convertYnabToStandardTransaction,
+} from './Converters';
+import {getParsedLabels} from './getParsedLabels';
+import TransactionListItems from './TransactionListItems';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
@@ -46,6 +53,10 @@ function App() {
 
   const [transactions, setTransactions] = useState<TransactionDetail[] | null>(
     null,
+  );
+
+  const [labels, _setLabels] = useState<YnabCsvTransactionType[]>(() =>
+    getParsedLabels(),
   );
 
   useEffect(() => {
@@ -213,30 +224,55 @@ function App() {
               </Box>
             )}
 
-            {transactions != null && (
-              <Box sx={{minWidth: 120}}>
-                <List>
-                  {transactions.length === 0 ? (
-                    <ListItem key="loading">
-                      <ListItemText primary="No transactions available" />
-                    </ListItem>
-                  ) : (
-                    transactions.map((transaction) => (
-                      <ListItem
-                        key={transaction.id}
-                        secondaryAction={getFormattedAmount(
-                          transaction.amount,
-                        )}>
-                        <ListItemText
-                          primary={`[${transaction.date}] ${transaction.payee_name}`}
-                          secondary={transaction.memo}
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Typography sx={{mb: 2}} variant="h3">
+                  Transactions
+                </Typography>
+
+                {transactions != null && (
+                  <Box sx={{minWidth: 120}}>
+                    <List>
+                      {transactions.length === 0 ? (
+                        <ListItem key="loading">
+                          <ListItemText primary="No transactions available" />
+                        </ListItem>
+                      ) : (
+                        <TransactionListItems
+                          transactions={convertYnabToStandardTransaction(
+                            transactions,
+                          )}
                         />
-                      </ListItem>
-                    ))
-                  )}
-                </List>
-              </Box>
-            )}
+                      )}
+                    </List>
+                  </Box>
+                )}
+              </Grid>
+
+              <Grid item xs={6}>
+                <Typography sx={{mb: 2}} variant="h3">
+                  Labels
+                </Typography>
+
+                {labels != null && (
+                  <Box sx={{minWidth: 120}}>
+                    <List>
+                      {labels.length === 0 ? (
+                        <ListItem key="loading">
+                          <ListItemText primary="No labels available" />
+                        </ListItem>
+                      ) : (
+                        <TransactionListItems
+                          transactions={convertYnabCsvToStandardTransaction(
+                            labels,
+                          )}
+                        />
+                      )}
+                    </List>
+                  </Box>
+                )}
+              </Grid>
+            </Grid>
           </Stack>
         </Paper>
       </Box>
