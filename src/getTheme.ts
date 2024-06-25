@@ -14,6 +14,7 @@ function getTheme({mode}: {mode: 'dark' | 'light'}) {
           '-apple-system',
           'sans-serif',
         ].join(','),
+        fontSize: 11,
         // h1: {
         //   fontSize: '4rem',
         // },
