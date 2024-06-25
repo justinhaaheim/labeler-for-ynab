@@ -9,3 +9,4 @@
   - [ ] Should I try to parse the label that's already in the memo in YNAB, and then make sure I don't use that label for something else? The text would have to be verbatim, unless I could come up with some other unique identifier (amazon order # ??)
 - [ ] Write function to actually apply the updates
 - [ ] Have this app produce an output log of what its done, and also some sort of data to allow us to undo what we just did (ie transaction id, original memo, text that was added to the memo, whether it was appended/prepended, etc)
+- [ ] Fix placement of version number (currently at the bottom of the screen, not the whole page)

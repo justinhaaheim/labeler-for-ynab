@@ -5,6 +5,8 @@ import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
 import InputLabel from '@mui/material/InputLabel';
@@ -69,6 +71,13 @@ function App() {
   const [matchCandidates, setMatchCandidates] = useState<
     MatchCandidate[] | null
   >(null);
+
+  const finalizedMatches =
+    matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [];
+
+  const successfulMatchesCount = finalizedMatches.filter(
+    (matchCandidate) => matchCandidate.candidates.length > 0,
+  ).length;
 
   useEffect(() => {
     if (budgets == null) {
@@ -148,14 +157,14 @@ function App() {
             paddingX: {sm: 3, xs: 1},
             paddingY: {sm: 8, xs: 6},
           }}>
-          <Stack spacing={{sm: 3, xs: 7}}>
+          <Stack alignItems="center" spacing={{sm: 3, xs: 7}}>
             <Box>
               <Typography sx={{marginBottom: 2}} variant="h1">
                 YNAB Labeler
               </Typography>
             </Box>
 
-            <Box sx={{minWidth: 120}}>
+            <Box sx={{minWidth: 120, width: '100%'}}>
               <FormControl fullWidth>
                 <InputLabel id="budget-selector-label-id">
                   Select your budget
@@ -236,6 +245,36 @@ function App() {
                 </FormControl>
               </Box>
             )}
+
+            <Card elevation={2} sx={{width: 'fit-content'}}>
+              <CardContent>
+                <Typography sx={{marginBottom: 2}} variant="h3">
+                  Status
+                </Typography>
+
+                <Box sx={{textAlign: 'left'}}>
+                  <Typography>{`${
+                    transactions?.length ?? 0
+                  } YNAB transactions fetched`}</Typography>
+
+                  <Typography>{`${
+                    labels?.length ?? 0
+                  } labels loaded`}</Typography>
+
+                  <Typography>{`${
+                    matchCandidates == null ? '__' : successfulMatchesCount
+                  }/${
+                    labels.length
+                  } labels matched to a YNAB transaction`}</Typography>
+
+                  <Typography>{`${
+                    matchCandidates == null
+                      ? '__'
+                      : labels.length - successfulMatchesCount
+                  } labels had no match`}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
 
             <Grid container spacing={2}>
               <Grid item xs={6}>
@@ -328,7 +367,7 @@ function App() {
               ) : (
                 <MatchCandidateTable
                   label="Finalized Matches"
-                  matchCandidates={resolveBestMatchForLabels(matchCandidates)}
+                  matchCandidates={finalizedMatches}
                 />
               ))}
           </Stack>
