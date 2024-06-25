@@ -243,6 +243,10 @@ function App() {
                   Transactions
                 </Typography>
 
+                <Typography>{`${
+                  transactions?.length ?? 0
+                } transactions fetched`}</Typography>
+
                 {transactions != null && (
                   <Box sx={{minWidth: 120}}>
                     <List>
@@ -266,6 +270,10 @@ function App() {
                 <Typography sx={{mb: 2}} variant="h3">
                   Labels
                 </Typography>
+
+                <Typography>{`${
+                  labels?.length ?? 0
+                } labels loaded`}</Typography>
 
                 {labels != null && (
                   <Box sx={{minWidth: 120}}>
