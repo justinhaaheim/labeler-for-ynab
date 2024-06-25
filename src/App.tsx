@@ -47,6 +47,8 @@ const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 const USE_CACHED_RESPONSES = true;
 const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 
+const UNDERSCORE_STRING = '__';
+
 const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
 
 const ynabAPI = new ynab.API(YNAB_ACCESS_TOKEN);
@@ -77,12 +79,22 @@ function App() {
 
   const [updateLogs, setUpdateLogs] = useState<UpdateLog[] | null>(null);
 
+  const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLog[] | null>(
+    null,
+  );
+
   const finalizedMatches =
     matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [];
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
   ).length;
+
+  const successfulSyncsCount: number | null =
+    updateLogs?.filter((log) => log.updateSucceeded).length ?? null;
+
+  const successfulUndosCount: number | null =
+    undoUpdateLogs?.filter((log) => log.updateSucceeded).length ?? null;
 
   useEffect(() => {
     if (budgets == null) {
@@ -179,9 +191,9 @@ function App() {
                   Status
                 </Typography>
 
-                <Box sx={{textAlign: 'left'}}>
+                <Box sx={{mb: 2, textAlign: 'left'}}>
                   <Typography>{`${
-                    transactions?.length ?? 0
+                    transactions?.length ?? UNDERSCORE_STRING
                   } YNAB transactions fetched`}</Typography>
 
                   <Typography>{`${
@@ -189,16 +201,28 @@ function App() {
                   } labels loaded`}</Typography>
 
                   <Typography>{`${
-                    matchCandidates == null ? '__' : successfulMatchesCount
+                    matchCandidates == null
+                      ? UNDERSCORE_STRING
+                      : successfulMatchesCount
                   }/${
                     labels.length
                   } labels matched to a YNAB transaction`}</Typography>
 
                   <Typography>{`${
                     matchCandidates == null
-                      ? '__'
+                      ? UNDERSCORE_STRING
                       : labels.length - successfulMatchesCount
                   } labels had no match`}</Typography>
+                </Box>
+
+                <Box sx={{textAlign: 'left'}}>
+                  <Typography>{`${successfulSyncsCount ?? UNDERSCORE_STRING}/${
+                    updateLogs?.length ?? UNDERSCORE_STRING
+                  } YNAB transaction updates successful`}</Typography>
+
+                  <Typography>{`${successfulUndosCount ?? UNDERSCORE_STRING}/${
+                    undoUpdateLogs?.length ?? UNDERSCORE_STRING
+                  } YNAB undo updates successful`}</Typography>
                 </Box>
               </CardContent>
             </Card>
@@ -319,8 +343,12 @@ function App() {
                   successfulMatchesCount === 0
                 }
                 onClick={() => {
+                  if (selectedBudgetID == null) {
+                    console.error('[Sync labels] No budget selected');
+                    return;
+                  }
                   syncLabelsToYnab({
-                    budgetID: 'dummy',
+                    budgetID: selectedBudgetID,
                     finalizedMatches,
                     ynabAPI,
                   })
@@ -338,9 +366,34 @@ function App() {
 
             <Box>
               <Button
-                disabled={updateLogs == null || updateLogs.length === 0}
+                disabled={
+                  updateLogs == null ||
+                  updateLogs.length === 0 ||
+                  undoUpdateLogs != null
+                }
                 onClick={() => {
-                  updateLogs != null && undoSyncLabelsToYnab(updateLogs);
+                  if (selectedBudgetID == null) {
+                    console.error('[Undo Sync labels] No budget selected');
+                    return;
+                  }
+                  if (updateLogs == null) {
+                    console.error(
+                      '[Undo Sync labels] No update logs available',
+                    );
+                    return;
+                  }
+
+                  undoSyncLabelsToYnab({
+                    budgetID: selectedBudgetID,
+                    updateLogs,
+                    ynabAPI,
+                  })
+                    .then((undoUpdateLogs) => {
+                      setUndoUpdateLogs(undoUpdateLogs);
+                    })
+                    .catch((error) => {
+                      console.error('undoSyncLabelsToYnab error:', error);
+                    });
                 }}
                 variant="contained">
                 UNDO Sync
