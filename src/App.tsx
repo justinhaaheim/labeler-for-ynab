@@ -227,7 +227,7 @@ function App() {
               </CardContent>
             </Card>
 
-            <Box sx={{minWidth: 120, width: '100%'}}>
+            <Box sx={{minWidth: 240}}>
               <FormControl fullWidth>
                 <InputLabel id="budget-selector-label-id">
                   Select your budget
@@ -268,7 +268,7 @@ function App() {
               </FormControl>
             </Box>
 
-            <Box sx={{minWidth: 120, width: '100%'}}>
+            <Box sx={{minWidth: 240}}>
               <FormControl disabled={selectedBudgetID == null} fullWidth>
                 <InputLabel id="account-selector-label-id">
                   Select your account
@@ -404,6 +404,14 @@ function App() {
                 UNDO Sync
               </Button>
             </Box>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography sx={{mb: 2}} variant="h3">
+                  Labels With No Match
+                </Typography>
+              </Grid>
+            </Grid>
 
             <Grid container spacing={2}>
               <Grid item xs={6}>
