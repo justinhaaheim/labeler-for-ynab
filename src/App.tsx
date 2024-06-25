@@ -228,11 +228,12 @@ function App() {
             </Card>
 
             <Box sx={{minWidth: 120, width: '100%'}}>
-              <FormControl>
+              <FormControl fullWidth>
                 <InputLabel id="budget-selector-label-id">
                   Select your budget
                 </InputLabel>
                 <Select
+                  fullWidth
                   id="budget-selector"
                   label="Select your budget"
                   labelId="budget-selector-label-id"
@@ -268,11 +269,12 @@ function App() {
             </Box>
 
             <Box sx={{minWidth: 120, width: '100%'}}>
-              <FormControl disabled={selectedBudgetID == null}>
+              <FormControl disabled={selectedBudgetID == null} fullWidth>
                 <InputLabel id="account-selector-label-id">
                   Select your account
                 </InputLabel>
                 <Select
+                  fullWidth
                   id="account-selector"
                   label="Select your account"
                   labelId="account-selector-label-id"
@@ -347,6 +349,9 @@ function App() {
                     console.error('[Sync labels] No budget selected');
                     return;
                   }
+                  setUpdateLogs(null);
+                  setUndoUpdateLogs(null);
+
                   syncLabelsToYnab({
                     budgetID: selectedBudgetID,
                     finalizedMatches,
