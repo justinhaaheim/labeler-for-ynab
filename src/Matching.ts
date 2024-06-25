@@ -8,6 +8,16 @@ export type MatchCandidate = {
   label: StandardTransactionType;
 };
 
+export type LabelTransactionMatch = {
+  label: StandardTransactionType;
+  transactionMatch: TransactionDetail | null;
+};
+
+export type LabelTransactionMatchNonNullable = {
+  label: StandardTransactionType;
+  transactionMatch: TransactionDetail;
+};
+
 type TransactionDetailWithDateDiff = TransactionDetail & {
   dateDiff: number;
 };
@@ -115,10 +125,10 @@ export function getMatchCandidatesForAllLabels(
 
 export function resolveBestMatchForLabels(
   matchCandidates: MatchCandidate[],
-): MatchCandidate[] {
+): LabelTransactionMatch[] {
   const alreadyMatchedTransactionIDs = new Set<string>();
 
-  const finalizedMatchPairings: MatchCandidate[] = [];
+  const finalizedMatchPairings: LabelTransactionMatch[] = [];
 
   for (const {candidates, label} of matchCandidates) {
     let bestTransactionMatch: TransactionDetail | null = null;
@@ -138,8 +148,8 @@ export function resolveBestMatchForLabels(
     });
 
     finalizedMatchPairings.push({
-      candidates: bestTransactionMatch != null ? [bestTransactionMatch] : [],
       label,
+      transactionMatch: bestTransactionMatch,
     });
   }
 

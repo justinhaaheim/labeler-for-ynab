@@ -1,5 +1,6 @@
 import type {StandardTransactionType} from './LabelTypes';
 import type {MatchCandidate} from './Matching';
+import type {UpdateLog} from './Sync';
 import type {SelectChangeEvent} from '@mui/material/Select';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 
@@ -32,11 +33,13 @@ import {
   convertYnabToStandardTransaction,
 } from './Converters';
 import {getParsedLabels} from './getParsedLabels';
+import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
+import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
 import TransactionListItems from './TransactionListItems';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
@@ -72,11 +75,13 @@ function App() {
     MatchCandidate[] | null
   >(null);
 
+  const [updateLogs, setUpdateLogs] = useState<UpdateLog[] | null>(null);
+
   const finalizedMatches =
     matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [];
 
   const successfulMatchesCount = finalizedMatches.filter(
-    (matchCandidate) => matchCandidate.candidates.length > 0,
+    (match) => match.transactionMatch != null,
   ).length;
 
   useEffect(() => {
@@ -139,6 +144,10 @@ function App() {
     }
   }, [selectedAccountID, selectedBudgetID, transactions]);
 
+  /////////////////////////////////////////////////
+  // Functions
+  /////////////////////////////////////////////////
+
   return (
     <>
       <Box
@@ -164,8 +173,38 @@ function App() {
               </Typography>
             </Box>
 
+            <Card elevation={2} sx={{width: 'fit-content'}}>
+              <CardContent>
+                <Typography sx={{marginBottom: 2}} variant="h3">
+                  Status
+                </Typography>
+
+                <Box sx={{textAlign: 'left'}}>
+                  <Typography>{`${
+                    transactions?.length ?? 0
+                  } YNAB transactions fetched`}</Typography>
+
+                  <Typography>{`${
+                    labels?.length ?? 0
+                  } labels loaded`}</Typography>
+
+                  <Typography>{`${
+                    matchCandidates == null ? '__' : successfulMatchesCount
+                  }/${
+                    labels.length
+                  } labels matched to a YNAB transaction`}</Typography>
+
+                  <Typography>{`${
+                    matchCandidates == null
+                      ? '__'
+                      : labels.length - successfulMatchesCount
+                  } labels had no match`}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
+
             <Box sx={{minWidth: 120, width: '100%'}}>
-              <FormControl fullWidth>
+              <FormControl>
                 <InputLabel id="budget-selector-label-id">
                   Select your budget
                 </InputLabel>
@@ -204,77 +243,109 @@ function App() {
               </FormControl>
             </Box>
 
-            {selectedBudgetID != null && (
-              <Box sx={{minWidth: 120}}>
-                <FormControl fullWidth>
-                  <InputLabel id="account-selector-label-id">
-                    Select your account
-                  </InputLabel>
-                  <Select
-                    id="account-selector"
-                    label="Select your account"
-                    labelId="account-selector-label-id"
-                    onChange={(event: SelectChangeEvent) => {
-                      console.log(event);
-                      const newAccountID = event.target.value;
-                      if (selectedAccountID !== newAccountID) {
-                        console.debug(
-                          'New accountID selected. Clearing transactions',
-                        );
-                        setTransactions(null);
-                        setMatchCandidates(null);
-                        setSelectedAccountID(newAccountID);
-                      }
-                    }}
-                    value={selectedAccountID ?? ''}>
-                    {
-                      // TODO: better handling when empty array is returned
-                      accounts == null || accounts.length === 0 ? (
-                        <MenuItem key="loading">
-                          {'Loading accounts...'}
-                        </MenuItem>
-                      ) : (
-                        accounts?.map((account) => (
-                          <MenuItem key={account.id} value={account.id}>
-                            {account.name}
-                          </MenuItem>
-                        ))
-                      )
+            <Box sx={{minWidth: 120, width: '100%'}}>
+              <FormControl disabled={selectedBudgetID == null}>
+                <InputLabel id="account-selector-label-id">
+                  Select your account
+                </InputLabel>
+                <Select
+                  id="account-selector"
+                  label="Select your account"
+                  labelId="account-selector-label-id"
+                  onChange={(event: SelectChangeEvent) => {
+                    console.log(event);
+                    const newAccountID = event.target.value;
+                    if (selectedAccountID !== newAccountID) {
+                      console.debug(
+                        'New accountID selected. Clearing transactions',
+                      );
+                      setTransactions(null);
+                      setMatchCandidates(null);
+                      setSelectedAccountID(newAccountID);
                     }
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
+                  }}
+                  value={selectedAccountID ?? ''}>
+                  {
+                    // TODO: better handling when empty array is returned
+                    accounts == null || accounts.length === 0 ? (
+                      <MenuItem key="loading">{'Loading accounts...'}</MenuItem>
+                    ) : (
+                      accounts?.map((account) => (
+                        <MenuItem key={account.id} value={account.id}>
+                          {account.name}
+                        </MenuItem>
+                      ))
+                    )
+                  }
+                </Select>
+              </FormControl>
+            </Box>
 
-            <Card elevation={2} sx={{width: 'fit-content'}}>
-              <CardContent>
-                <Typography sx={{marginBottom: 2}} variant="h3">
-                  Status
-                </Typography>
+            <Box>
+              <Button
+                disabled={
+                  transactions == null ||
+                  transactions.length === 0 ||
+                  labels == null ||
+                  labels.length === 0
+                }
+                onClick={() => {
+                  if (transactions == null || labels == null) {
+                    console.debug(
+                      'Unable to generate match candidates: Transactions or labels not loaded',
+                    );
+                    return;
+                  }
+                  const matchCandidates = getMatchCandidatesForAllLabels(
+                    labels,
+                    transactions,
+                  );
+                  console.debug('Match candidates generated');
+                  console.debug(matchCandidates);
+                  setMatchCandidates(matchCandidates);
+                }}
+                variant="contained">
+                Generate match candidates
+              </Button>
+            </Box>
 
-                <Box sx={{textAlign: 'left'}}>
-                  <Typography>{`${
-                    transactions?.length ?? 0
-                  } YNAB transactions fetched`}</Typography>
+            <Box>
+              <Button
+                disabled={
+                  transactions == null ||
+                  transactions.length === 0 ||
+                  labels == null ||
+                  labels.length === 0 ||
+                  successfulMatchesCount === 0
+                }
+                onClick={() => {
+                  syncLabelsToYnab({
+                    budgetID: 'dummy',
+                    finalizedMatches,
+                    ynabAPI,
+                  })
+                    .then((updateLogs) => {
+                      setUpdateLogs(updateLogs);
+                    })
+                    .catch((error) => {
+                      console.error('syncLabelsToYnab error:', error);
+                    });
+                }}
+                variant="contained">
+                Sync labels to YNAB
+              </Button>
+            </Box>
 
-                  <Typography>{`${
-                    labels?.length ?? 0
-                  } labels loaded`}</Typography>
-
-                  <Typography>{`${
-                    matchCandidates == null ? '__' : successfulMatchesCount
-                  }/${
-                    labels.length
-                  } labels matched to a YNAB transaction`}</Typography>
-
-                  <Typography>{`${
-                    matchCandidates == null
-                      ? '__'
-                      : labels.length - successfulMatchesCount
-                  } labels had no match`}</Typography>
-                </Box>
-              </CardContent>
-            </Card>
+            <Box>
+              <Button
+                disabled={updateLogs == null || updateLogs.length === 0}
+                onClick={() => {
+                  updateLogs != null && undoSyncLabelsToYnab(updateLogs);
+                }}
+                variant="contained">
+                UNDO Sync
+              </Button>
+            </Box>
 
             <Grid container spacing={2}>
               <Grid item xs={6}>
@@ -330,27 +401,6 @@ function App() {
               </Grid>
             </Grid>
 
-            {transactions != null &&
-              transactions.length > 0 &&
-              labels != null &&
-              labels.length > 0 && (
-                <Box>
-                  <Button
-                    onClick={() => {
-                      const matchCandidates = getMatchCandidatesForAllLabels(
-                        labels,
-                        transactions,
-                      );
-                      console.debug('Match candidates generated');
-                      console.debug(matchCandidates);
-                      setMatchCandidates(matchCandidates);
-                    }}
-                    variant="contained">
-                    Generate match candidates
-                  </Button>
-                </Box>
-              )}
-
             {matchCandidates != null &&
               (matchCandidates.length === 0 ? (
                 <Typography>No matches found</Typography>
@@ -365,9 +415,9 @@ function App() {
               (matchCandidates.length === 0 ? (
                 <Typography>No matches found</Typography>
               ) : (
-                <MatchCandidateTable
+                <LabelTransactionMatchTable
                   label="Finalized Matches"
-                  matchCandidates={finalizedMatches}
+                  matches={finalizedMatches}
                 />
               ))}
           </Stack>

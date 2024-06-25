@@ -3,6 +3,7 @@ import type {StandardTransactionType} from './LabelTypes';
 import Divider from '@mui/material/Divider';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
+import React from 'react';
 
 import getFormattedAmount from './getFormattedAmount';
 
@@ -22,11 +23,11 @@ export default function TransactionListItems({
   }
 
   return transactions.map((t, i) => (
-    <>
-      <ListItem key={t.id} secondaryAction={getFormattedAmount(t.amount)}>
+    <React.Fragment key={t.id}>
+      <ListItem secondaryAction={getFormattedAmount(t.amount)}>
         <ListItemText primary={`[${t.date}] ${t.payee}`} secondary={t.memo} />
       </ListItem>
       {i !== transactions.length - 1 && <Divider />}
-    </>
+    </React.Fragment>
   ));
 }
