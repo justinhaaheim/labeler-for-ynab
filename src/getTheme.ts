@@ -4,7 +4,7 @@ function getTheme({mode}: {mode: 'dark' | 'light'}) {
   return responsiveFontSizes(
     createTheme({
       palette: {
-        background: {default: mode === 'light' ? '#F6F6F6' : undefined},
+        // background: {default: mode === 'light' ? '#F6F6F6' : undefined},
         mode: mode,
       },
       typography: {

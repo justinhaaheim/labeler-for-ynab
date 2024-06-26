@@ -40,6 +40,7 @@ import {
   resolveBestMatchForLabels,
 } from './Matching';
 import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
+import TransactionDataGrid from './TransactionDataGrid';
 import TransactionListItems from './TransactionListItems';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
@@ -410,6 +411,12 @@ function App() {
                 <Typography sx={{mb: 2}} variant="h3">
                   Labels With No Match
                 </Typography>
+
+                <TransactionDataGrid
+                  transactions={finalizedMatches
+                    .filter((m) => m.transactionMatch == null)
+                    .map((m) => m.label)}
+                />
               </Grid>
             </Grid>
 

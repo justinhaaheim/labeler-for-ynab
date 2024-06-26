@@ -6,6 +6,7 @@ import type {StandardTransactionType} from './LabelTypes';
 // import List from '@mui/material/List';
 import type {GridColDef} from '@mui/x-data-grid';
 
+import Box from '@mui/material/Box';
 import {DataGrid} from '@mui/x-data-grid';
 
 // import {convertYnabToStandardTransaction} from './Converters';
@@ -29,5 +30,25 @@ const columns: GridColDef<StandardTransactionType[][number]>[] = [
 export default function TransactionDataGrid({
   transactions,
 }: Props): React.ReactElement {
-  return <DataGrid columns={columns} rows={transactions} />;
+  return (
+    <Box
+      sx={{
+        height: 400,
+        width: 800,
+      }}>
+      <DataGrid
+        columns={columns}
+        density="compact"
+        onResize={(containerSize, event, details) => {
+          console.debug('[onResize]', {containerSize, details, event});
+        }}
+        resizeThrottleMs={1000}
+        // paginationMode="server"
+        // initialState={}
+        // disableEval
+        // disableVirtualization
+        rows={transactions}
+      />
+    </Box>
+  );
 }
