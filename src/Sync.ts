@@ -30,7 +30,7 @@ export type UpdateLog = {
 };
 
 export function generateStandardLabel(label: StandardTransactionType): string {
-  return `## ${label.memo} ##`;
+  return `| ${label.memo}`;
 }
 
 export async function syncLabelsToYnab({
