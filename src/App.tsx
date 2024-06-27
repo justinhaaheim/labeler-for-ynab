@@ -7,7 +7,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Checkbox from '@mui/material/Checkbox';
 import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import FormLabel from '@mui/material/FormLabel';
 import Grid from '@mui/material/Grid';
 import InputLabel from '@mui/material/InputLabel';
 import List from '@mui/material/List';
@@ -53,6 +57,12 @@ const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
 
 const ynabAPI = new ynab.API(YNAB_ACCESS_TOKEN);
 
+type LabelSyncFilterConfig = {
+  omitAlreadyCategorized: boolean;
+  omitNonemptyMemo: boolean;
+  omitReconciled: boolean;
+};
+
 // @ts-ignore - remove later
 window.ynabAPI = ynabAPI;
 
@@ -72,6 +82,13 @@ function App() {
   const [labels, _setLabels] = useState<StandardTransactionType[]>(() =>
     convertYnabCsvToStandardTransaction(getParsedLabels()),
   );
+
+  const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
+    useState<LabelSyncFilterConfig>({
+      omitAlreadyCategorized: true,
+      omitNonemptyMemo: false,
+      omitReconciled: true,
+    });
 
   const [updateLogs, setUpdateLogs] = useState<UpdateLog[] | null>(null);
 
@@ -93,9 +110,51 @@ function App() {
     [matchCandidates],
   );
 
+  const finalizedMatchesFiltered = useMemo(
+    () =>
+      finalizedMatches.filter((match) => {
+        if (match.transactionMatch == null) {
+          return false;
+        }
+
+        // Filter this transaction out if we're NOT supposed to apply
+        // to transactions with a nonempty memo, AND the memo is not empty
+        if (
+          labelSyncFilterConfig.omitNonemptyMemo &&
+          (match.transactionMatch.memo ?? '').trim().length > 0
+        ) {
+          return false;
+        }
+
+        if (
+          labelSyncFilterConfig.omitAlreadyCategorized &&
+          match.transactionMatch.category_id != null
+        ) {
+          return false;
+        }
+
+        if (
+          labelSyncFilterConfig.omitReconciled &&
+          match.transactionMatch.cleared === 'reconciled'
+        ) {
+          return false;
+        }
+
+        return true;
+      }),
+    [
+      finalizedMatches,
+      labelSyncFilterConfig.omitAlreadyCategorized,
+      labelSyncFilterConfig.omitNonemptyMemo,
+      labelSyncFilterConfig.omitReconciled,
+    ],
+  );
+
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
   ).length;
+
+  const successfulMatchesThatPassFiltersCount = finalizedMatchesFiltered.length;
 
   const successfulSyncsCount: number | null =
     updateLogs?.filter((log) => log.updateSucceeded).length ?? null;
@@ -222,6 +281,18 @@ function App() {
                   } labels had no match`}</Typography>
                 </Box>
 
+                <Box sx={{mb: 2, textAlign: 'left'}}>
+                  <Typography>{`${
+                    matchCandidates == null
+                      ? UNDERSCORE_STRING
+                      : successfulMatchesThatPassFiltersCount
+                  }/${
+                    matchCandidates == null
+                      ? UNDERSCORE_STRING
+                      : successfulMatchesCount
+                  } labels will be synced based on filter criteria`}</Typography>
+                </Box>
+
                 <Box sx={{textAlign: 'left'}}>
                   <Typography>{`${successfulSyncsCount ?? UNDERSCORE_STRING}/${
                     updateLogs?.length ?? UNDERSCORE_STRING
@@ -313,6 +384,47 @@ function App() {
             </Box>
 
             <Box>
+              <FormGroup>
+                <FormLabel component="legend">
+                  Do not apply labels to...
+                </FormLabel>
+                <FormControlLabel
+                  checked={labelSyncFilterConfig.omitNonemptyMemo}
+                  control={<Checkbox />}
+                  label="Transactions With Pre-existing Memos"
+                  onChange={(_e, checked) =>
+                    setLabelSyncFilterConfig((prev) => ({
+                      ...prev,
+                      omitNonemptyMemo: checked,
+                    }))
+                  }
+                />
+                <FormControlLabel
+                  checked={labelSyncFilterConfig.omitAlreadyCategorized}
+                  control={<Checkbox />}
+                  label="Transactions That Are Already Categorized"
+                  onChange={(_e, checked) =>
+                    setLabelSyncFilterConfig((prev) => ({
+                      ...prev,
+                      omitAlreadyCategorized: checked,
+                    }))
+                  }
+                />
+                <FormControlLabel
+                  checked={labelSyncFilterConfig.omitReconciled}
+                  control={<Checkbox />}
+                  label="Reconciled Transactions"
+                  onChange={(_e, checked) =>
+                    setLabelSyncFilterConfig((prev) => ({
+                      ...prev,
+                      omitReconciled: checked,
+                    }))
+                  }
+                />
+              </FormGroup>
+            </Box>
+
+            <Box>
               <Button
                 disabled={
                   transactions == null ||
@@ -331,7 +443,7 @@ function App() {
 
                   syncLabelsToYnab({
                     budgetID: selectedBudgetID,
-                    finalizedMatches,
+                    finalizedMatches: finalizedMatchesFiltered,
                     ynabAPI,
                   })
                     .then((updateLogs) => {
