@@ -105,17 +105,12 @@ export function getMatchCandidatesForAllLabels(
   labels: StandardTransactionType[],
   ynabTransactions: TransactionDetail[],
 ): MatchCandidate[] {
+  console.debug('⭐ [getMatchCandidatesForAllLabels]');
   const matchCandidates: MatchCandidate[] = [];
-
-  let logCount = 3;
 
   for (const label of labels) {
     matchCandidates.push({
-      candidates: getMatchCandidatesForLabel(
-        label,
-        ynabTransactions,
-        logCount-- > 0,
-      ),
+      candidates: getMatchCandidatesForLabel(label, ynabTransactions, false),
       label: label,
     });
   }
@@ -126,6 +121,7 @@ export function getMatchCandidatesForAllLabels(
 export function resolveBestMatchForLabels(
   matchCandidates: MatchCandidate[],
 ): LabelTransactionMatch[] {
+  console.debug('⭐ [resolveBestMatchForLabels]');
   const alreadyMatchedTransactionIDs = new Set<string>();
 
   const finalizedMatchPairings: LabelTransactionMatch[] = [];

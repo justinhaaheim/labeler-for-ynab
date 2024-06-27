@@ -1,5 +1,4 @@
 import type {StandardTransactionType} from './LabelTypes';
-import type {MatchCandidate} from './Matching';
 import type {UpdateLog} from './Sync';
 import type {SelectChangeEvent} from '@mui/material/Select';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
@@ -21,7 +20,7 @@ import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
@@ -74,18 +73,25 @@ function App() {
     convertYnabCsvToStandardTransaction(getParsedLabels()),
   );
 
-  const [matchCandidates, setMatchCandidates] = useState<
-    MatchCandidate[] | null
-  >(null);
-
   const [updateLogs, setUpdateLogs] = useState<UpdateLog[] | null>(null);
 
   const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLog[] | null>(
     null,
   );
 
-  const finalizedMatches =
-    matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [];
+  const matchCandidates = useMemo(
+    () =>
+      labels == null || transactions == null
+        ? null
+        : getMatchCandidatesForAllLabels(labels, transactions),
+    [labels, transactions],
+  );
+
+  const finalizedMatches = useMemo(
+    () =>
+      matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [],
+    [matchCandidates],
+  );
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
@@ -248,7 +254,6 @@ function App() {
                       setSelectedAccountID(null);
                       setAccounts(null);
                       setTransactions(null);
-                      setMatchCandidates(null);
                       setSelectedBudgetID(newBudgetID);
                     }
                   }}
@@ -287,7 +292,6 @@ function App() {
                         'New accountID selected. Clearing transactions',
                       );
                       setTransactions(null);
-                      setMatchCandidates(null);
                       setSelectedAccountID(newAccountID);
                     }
                   }}
@@ -306,34 +310,6 @@ function App() {
                   }
                 </Select>
               </FormControl>
-            </Box>
-
-            <Box>
-              <Button
-                disabled={
-                  transactions == null ||
-                  transactions.length === 0 ||
-                  labels == null ||
-                  labels.length === 0
-                }
-                onClick={() => {
-                  if (transactions == null || labels == null) {
-                    console.debug(
-                      'Unable to generate match candidates: Transactions or labels not loaded',
-                    );
-                    return;
-                  }
-                  const matchCandidates = getMatchCandidatesForAllLabels(
-                    labels,
-                    transactions,
-                  );
-                  console.debug('Match candidates generated');
-                  console.debug(matchCandidates);
-                  setMatchCandidates(matchCandidates);
-                }}
-                variant="contained">
-                Generate match candidates
-              </Button>
             </Box>
 
             <Box>
