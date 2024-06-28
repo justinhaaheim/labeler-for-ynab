@@ -161,16 +161,29 @@ function App() {
 
   useEffect(() => {
     if (budgets == null) {
+      const budgetSortFn = (b1: BudgetSummary, b2: BudgetSummary) => {
+        // Use the unary to convert date to number https://github.com/microsoft/TypeScript/issues/5710#issuecomment-157886246
+        const d1 =
+          b1.last_modified_on != null
+            ? +new Date(b1.last_modified_on)
+            : Number.NEGATIVE_INFINITY;
+        const d2 =
+          b2.last_modified_on != null
+            ? +new Date(b2.last_modified_on)
+            : Number.NEGATIVE_INFINITY;
+        // We want dates in descending order
+        return d2 - d1;
+      };
       if (!USE_CACHED_RESPONSES) {
         (async function () {
           console.debug('📡 Fetching budgets data...');
           const budgetsResponse = await ynabAPI.budgets.getBudgets();
-          setBudgets(budgetsResponse.data.budgets);
+          setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
         })();
       } else {
         console.debug('Using cached budgets data');
         setTimeout(() => {
-          setBudgets(budgetsCachedJson);
+          setBudgets(budgetsCachedJson.sort(budgetSortFn));
         }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
       }
     }
