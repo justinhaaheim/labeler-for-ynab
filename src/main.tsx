@@ -21,7 +21,7 @@ console.log('App Version:', packageJson.version);
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <CssVarsProvider defaultMode="dark">
-      <CssBaseline enableColorScheme />
+      <CssBaseline />
       <ErrorBoundary
         fallback={(error, moduleName) => (
           <div

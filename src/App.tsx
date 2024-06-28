@@ -310,10 +310,7 @@ function App() {
                   Select your budget
                 </FormLabel>
                 <Select
-                  // fullWidth
                   id="budget-selector"
-                  // label="Select your budget"
-                  // labelId="budget-selector-label-id"
                   onChange={(
                     event: React.SyntheticEvent | null,
                     newValue: string | null,
@@ -330,7 +327,8 @@ function App() {
                       setSelectedBudgetID(newBudgetID);
                     }
                   }}
-                  value={selectedBudgetID ?? ''}>
+                  placeholder="Select budget..."
+                  value={selectedBudgetID}>
                   {
                     // TODO: better handling when empty array is returned
                     budgets == null || budgets.length === 0 ? (
@@ -355,10 +353,6 @@ function App() {
                   Select your account
                 </FormLabel>
                 <Select
-                  // fullWidth
-                  id="account-selector"
-                  // label="Select your account"
-                  // labelId="account-selector-label-id"
                   onChange={(
                     event: React.SyntheticEvent | null,
                     newValue: string | null,
@@ -373,10 +367,11 @@ function App() {
                       setSelectedAccountID(newAccountID);
                     }
                   }}
-                  value={selectedAccountID ?? ''}>
+                  placeholder="Select account..."
+                  value={selectedAccountID}>
                   {
                     // TODO: better handling when empty array is returned
-                    accounts == null || accounts.length === 0 ? (
+                    selectedBudgetID != null && accounts == null ? (
                       <Option key="loading" value="">
                         {'Loading accounts...'}
                       </Option>
@@ -396,36 +391,44 @@ function App() {
               <Typography component="legend">
                 Do not apply labels to...
               </Typography>
-              <Checkbox
-                checked={labelSyncFilterConfig.omitNonemptyMemo}
-                label="Transactions With Pre-existing Memos"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setLabelSyncFilterConfig((prev) => ({
-                    ...prev,
-                    omitNonemptyMemo: e.target.checked,
-                  }))
-                }
-              />
-              <Checkbox
-                checked={labelSyncFilterConfig.omitAlreadyCategorized}
-                label="Transactions That Are Already Categorized"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setLabelSyncFilterConfig((prev) => ({
-                    ...prev,
-                    omitAlreadyCategorized: e.target.checked,
-                  }))
-                }
-              />
-              <Checkbox
-                checked={labelSyncFilterConfig.omitReconciled}
-                label="Reconciled Transactions"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setLabelSyncFilterConfig((prev) => ({
-                    ...prev,
-                    omitReconciled: e.target.checked,
-                  }))
-                }
-              />
+              <List size="sm">
+                <ListItem>
+                  <Checkbox
+                    checked={labelSyncFilterConfig.omitNonemptyMemo}
+                    label="Transactions With Pre-existing Memos"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLabelSyncFilterConfig((prev) => ({
+                        ...prev,
+                        omitNonemptyMemo: e.target.checked,
+                      }))
+                    }
+                  />
+                </ListItem>
+                <ListItem>
+                  <Checkbox
+                    checked={labelSyncFilterConfig.omitAlreadyCategorized}
+                    label="Transactions That Are Already Categorized"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLabelSyncFilterConfig((prev) => ({
+                        ...prev,
+                        omitAlreadyCategorized: e.target.checked,
+                      }))
+                    }
+                  />
+                </ListItem>
+                <ListItem>
+                  <Checkbox
+                    checked={labelSyncFilterConfig.omitReconciled}
+                    label="Reconciled Transactions"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setLabelSyncFilterConfig((prev) => ({
+                        ...prev,
+                        omitReconciled: e.target.checked,
+                      }))
+                    }
+                  />
+                </ListItem>
+              </List>
             </Box>
 
             <Box>
