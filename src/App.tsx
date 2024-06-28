@@ -13,7 +13,6 @@ import Grid from '@mui/joy/Grid';
 import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
 // import ListItemButton from '@mui/joy/ListItemButton';
-import ListItemContent from '@mui/joy/ListItemContent';
 import Option from '@mui/joy/Option';
 import Select from '@mui/joy/Select';
 // import Button from '@mui/joy/Button';
@@ -40,7 +39,6 @@ import {
 } from './Matching';
 import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
-import TransactionListItems from './TransactionListItems';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
@@ -526,6 +524,7 @@ function App() {
                     />
                   </Grid>
                 </Grid>
+
                 <Grid container spacing={2}>
                   <Grid xs={6}>
                     <Typography level="h3" sx={{mb: 2}}>
@@ -537,23 +536,12 @@ function App() {
                     } transactions fetched`}</Typography>
 
                     {transactions != null && (
-                      <Box sx={{minWidth: 120}}>
-                        <List>
-                          {transactions.length === 0 ? (
-                            <ListItem key="loading">
-                              <ListItemContent>
-                                No transactions available
-                              </ListItemContent>
-                            </ListItem>
-                          ) : (
-                            <TransactionListItems
-                              transactions={convertYnabToStandardTransaction(
-                                transactions,
-                              )}
-                            />
-                          )}
-                        </List>
-                      </Box>
+                      <TransactionDataGrid
+                        size="sm"
+                        transactions={convertYnabToStandardTransaction(
+                          transactions,
+                        )}
+                      />
                     )}
                   </Grid>
 
@@ -567,19 +555,7 @@ function App() {
                     } labels loaded`}</Typography>
 
                     {labels != null && (
-                      <Box sx={{minWidth: 120}}>
-                        <List>
-                          {labels.length === 0 ? (
-                            <ListItem key="loading">
-                              <ListItemContent>
-                                No labels available
-                              </ListItemContent>
-                            </ListItem>
-                          ) : (
-                            <TransactionListItems transactions={labels} />
-                          )}
-                        </List>
-                      </Box>
+                      <TransactionDataGrid size="sm" transactions={labels} />
                     )}
                   </Grid>
                 </Grid>

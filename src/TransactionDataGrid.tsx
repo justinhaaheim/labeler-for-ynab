@@ -1,54 +1,64 @@
 import type {StandardTransactionType} from './LabelTypes';
-// import type {LabelTransactionMatch} from './Matching';
-// import {Typography} from '@mui/joy';
-// import Box from '@mui/joy/Box';
-// import Grid from '@mui/joy/Grid';
-// import List from '@mui/joy/List';
-import type {GridColDef} from '@mui/x-data-grid';
 
-import Box from '@mui/joy/Box';
-import {DataGrid} from '@mui/x-data-grid';
-
-// import {convertYnabToStandardTransaction} from './Converters';
-// import TransactionListItems from './TransactionListItems';
+import Sheet from '@mui/joy/Sheet';
+import Table from '@mui/joy/Table';
 
 type Props = {
+  size?: 'lg' | 'md' | 'sm';
   // label: string;
   transactions: StandardTransactionType[];
 };
 
-// const columnLabels = ['date', 'payee', 'memo', 'amount', 'id'];
+type GridColumnDef = {
+  field: keyof StandardTransactionType;
+  headerName: string;
+  width?: string;
+};
 
-const columns: GridColDef<StandardTransactionType[][number]>[] = [
-  {field: 'date', headerName: 'Date', width: 150},
-  {field: 'payee', headerName: 'Payee', width: 150},
-  {field: 'memo', headerName: 'Memo', width: 150},
-  {field: 'amount', headerName: 'Amount', width: 150},
-  {field: 'id', headerName: 'ID', width: 150},
+const columns: GridColumnDef[] = [
+  {field: 'date', headerName: 'Date'},
+  {field: 'payee', headerName: 'Payee'},
+  {field: 'memo', headerName: 'Memo', width: '50%'},
+  {field: 'amount', headerName: 'Amount'},
+  // {field: 'id', headerName: 'ID', width: 150},
 ];
 
 export default function TransactionDataGrid({
   transactions,
+  size = 'md',
 }: Props): React.ReactElement {
+  const data =
+    transactions.length > 0
+      ? transactions
+      : [{amount: '-', date: '-', id: '-', memo: '-', payee: '-'}];
+
   return (
-    <Box
-      sx={{
-        height: 400,
-        width: 800,
-      }}>
-      <DataGrid
-        columns={columns}
-        density="compact"
-        onResize={(containerSize, event, details) => {
-          console.debug('[onResize]', {containerSize, details, event});
-        }}
-        resizeThrottleMs={1000}
-        // paginationMode="server"
-        // initialState={}
-        // disableEval
-        // disableVirtualization
-        rows={transactions}
-      />
-    </Box>
+    <Sheet>
+      <Table size={size} sx={{overflowWrap: 'break-word'}}>
+        <thead>
+          <tr>
+            {columns.map((c) => {
+              const sx = c.width == null ? {} : {width: c.width};
+
+              return (
+                <th {...sx} key={c.headerName}>
+                  {c.headerName}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+
+        <tbody>
+          {data.map((t) => (
+            <tr key={t.id}>
+              {columns.map((col) => (
+                <td key={col.field}>{t[col.field]}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Sheet>
   );
 }
