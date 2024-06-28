@@ -96,6 +96,9 @@ function App() {
     null,
   );
 
+  const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
+    useState<boolean>(false);
+
   const matchCandidates = useMemo(
     () =>
       labels == null || transactions == null
@@ -493,94 +496,106 @@ function App() {
                 UNDO Sync
               </Button>
             </Box>
-            {/* 
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography sx={{mb: 2}} variant="h3">
-                  Labels With No Match
-                </Typography>
 
-                <TransactionDataGrid
-                  transactions={finalizedMatches
-                    .filter((m) => m.transactionMatch == null)
-                    .map((m) => m.label)}
-                />
-              </Grid>
-            </Grid>
+            <Box>
+              <FormControlLabel
+                checked={showAllLabelsAndTransactions}
+                control={<Checkbox />}
+                label="Show all labels, transactions and matches"
+                onChange={(_e, checked) =>
+                  setShowAllLabelsAndTransactions(checked)
+                }
+              />
+            </Box>
 
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography sx={{mb: 2}} variant="h3">
-                  Transactions
-                </Typography>
+            {showAllLabelsAndTransactions && (
+              <>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography sx={{mb: 2}} variant="h3">
+                      Labels With No Match
+                    </Typography>
 
-                <Typography>{`${
-                  transactions?.length ?? 0
-                } transactions fetched`}</Typography>
+                    <TransactionDataGrid
+                      transactions={finalizedMatches
+                        .filter((m) => m.transactionMatch == null)
+                        .map((m) => m.label)}
+                    />
+                  </Grid>
+                </Grid>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography sx={{mb: 2}} variant="h3">
+                      Transactions
+                    </Typography>
 
-                {transactions != null && (
-                  <Box sx={{minWidth: 120}}>
-                    <List>
-                      {transactions.length === 0 ? (
-                        <ListItem key="loading">
-                          <ListItemText primary="No transactions available" />
-                        </ListItem>
-                      ) : (
-                        <TransactionListItems
-                          transactions={convertYnabToStandardTransaction(
-                            transactions,
+                    <Typography>{`${
+                      transactions?.length ?? 0
+                    } transactions fetched`}</Typography>
+
+                    {transactions != null && (
+                      <Box sx={{minWidth: 120}}>
+                        <List>
+                          {transactions.length === 0 ? (
+                            <ListItem key="loading">
+                              <ListItemText primary="No transactions available" />
+                            </ListItem>
+                          ) : (
+                            <TransactionListItems
+                              transactions={convertYnabToStandardTransaction(
+                                transactions,
+                              )}
+                            />
                           )}
-                        />
-                      )}
-                    </List>
-                  </Box>
-                )}
-              </Grid>
+                        </List>
+                      </Box>
+                    )}
+                  </Grid>
 
-              <Grid item xs={6}>
-                <Typography sx={{mb: 2}} variant="h3">
-                  Labels
-                </Typography>
+                  <Grid item xs={6}>
+                    <Typography sx={{mb: 2}} variant="h3">
+                      Labels
+                    </Typography>
 
-                <Typography>{`${
-                  labels?.length ?? 0
-                } labels loaded`}</Typography>
+                    <Typography>{`${
+                      labels?.length ?? 0
+                    } labels loaded`}</Typography>
 
-                {labels != null && (
-                  <Box sx={{minWidth: 120}}>
-                    <List>
-                      {labels.length === 0 ? (
-                        <ListItem key="loading">
-                          <ListItemText primary="No labels available" />
-                        </ListItem>
-                      ) : (
-                        <TransactionListItems transactions={labels} />
-                      )}
-                    </List>
-                  </Box>
-                )}
-              </Grid>
-            </Grid>
-
-            {matchCandidates != null &&
-              (matchCandidates.length === 0 ? (
-                <Typography>No matches found</Typography>
-              ) : (
-                <MatchCandidateTable
-                  label="Match Candidates"
-                  matchCandidates={matchCandidates}
-                />
-              ))}
-
-            {matchCandidates != null &&
-              (matchCandidates.length === 0 ? (
-                <Typography>No matches found</Typography>
-              ) : (
-                <LabelTransactionMatchTable
-                  label="Finalized Matches"
-                  matches={finalizedMatches}
-                />
-              ))} */}
+                    {labels != null && (
+                      <Box sx={{minWidth: 120}}>
+                        <List>
+                          {labels.length === 0 ? (
+                            <ListItem key="loading">
+                              <ListItemText primary="No labels available" />
+                            </ListItem>
+                          ) : (
+                            <TransactionListItems transactions={labels} />
+                          )}
+                        </List>
+                      </Box>
+                    )}
+                  </Grid>
+                </Grid>
+                {matchCandidates != null &&
+                  (matchCandidates.length === 0 ? (
+                    <Typography>No matches found</Typography>
+                  ) : (
+                    <MatchCandidateTable
+                      label="Match Candidates"
+                      matchCandidates={matchCandidates}
+                    />
+                  ))}
+                {matchCandidates != null &&
+                  (matchCandidates.length === 0 ? (
+                    <Typography>No matches found</Typography>
+                  ) : (
+                    <LabelTransactionMatchTable
+                      label="Finalized Matches"
+                      matches={finalizedMatches}
+                    />
+                  ))}
+              </>
+            )}
           </Stack>
         </Paper>
       </Box>
