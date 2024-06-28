@@ -241,7 +241,7 @@ function App() {
           elevation={10}
           sx={{
             margin: {sm: 3, xs: 2},
-            paddingX: {sm: 3, xs: 1},
+            paddingX: {sm: 5, xs: 2},
             paddingY: {sm: 8, xs: 6},
           }}>
           <Stack alignItems="center" spacing={{sm: 3, xs: 7}}>
@@ -493,7 +493,7 @@ function App() {
                 UNDO Sync
               </Button>
             </Box>
-
+            {/* 
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Typography sx={{mb: 2}} variant="h3">
@@ -580,7 +580,7 @@ function App() {
                   label="Finalized Matches"
                   matches={finalizedMatches}
                 />
-              ))}
+              ))} */}
           </Stack>
         </Paper>
       </Box>
