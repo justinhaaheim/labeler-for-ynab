@@ -1,29 +1,25 @@
 import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLog} from './Sync';
-import type {SelectChangeEvent} from '@mui/material/Select';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Checkbox from '@mui/material/Checkbox';
-import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormGroup from '@mui/material/FormGroup';
-import FormLabel from '@mui/material/FormLabel';
-import Grid from '@mui/material/Grid';
-import InputLabel from '@mui/material/InputLabel';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-// import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import MenuItem from '@mui/material/MenuItem';
-// import Button from '@mui/material/Button';
-import Paper from '@mui/material/Paper';
-import Select from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
+import Box from '@mui/joy/Box';
+import Button from '@mui/joy/Button';
+import Card from '@mui/joy/Card';
+import CardContent from '@mui/joy/CardContent';
+import Checkbox from '@mui/joy/Checkbox';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
+import Grid from '@mui/joy/Grid';
+import List from '@mui/joy/List';
+import ListItem from '@mui/joy/ListItem';
+// import ListItemButton from '@mui/joy/ListItemButton';
+import ListItemContent from '@mui/joy/ListItemContent';
+import Option from '@mui/joy/Option';
+import Select from '@mui/joy/Select';
+// import Button from '@mui/joy/Button';
+import Sheet from '@mui/joy/Sheet';
+import Stack from '@mui/joy/Stack';
+import Typography from '@mui/joy/Typography';
 import {useEffect, useMemo, useState} from 'react';
 import * as ynab from 'ynab';
 
@@ -240,23 +236,23 @@ function App() {
           minHeight: '100dvh',
           position: 'relative',
         }}>
-        <Paper
-          elevation={10}
+        <Sheet
           sx={{
             margin: {sm: 3, xs: 2},
             paddingX: {sm: 5, xs: 2},
             paddingY: {sm: 8, xs: 6},
-          }}>
+          }}
+          variant="soft">
           <Stack alignItems="center" spacing={{sm: 3, xs: 7}}>
             <Box>
-              <Typography sx={{marginBottom: 2}} variant="h1">
+              <Typography level="h1" sx={{marginBottom: 2}}>
                 YNAB Labeler
               </Typography>
             </Box>
 
-            <Card elevation={2} sx={{width: 'fit-content'}}>
+            <Card sx={{width: 'fit-content'}}>
               <CardContent>
-                <Typography sx={{marginBottom: 2}} variant="h3">
+                <Typography level="h2" sx={{marginBottom: 2}}>
                   Status
                 </Typography>
 
@@ -309,18 +305,21 @@ function App() {
             </Card>
 
             <Box sx={{minWidth: 240}}>
-              <FormControl fullWidth>
-                <InputLabel id="budget-selector-label-id">
+              <FormControl>
+                <FormLabel id="budget-selector-label-id">
                   Select your budget
-                </InputLabel>
+                </FormLabel>
                 <Select
-                  fullWidth
+                  // fullWidth
                   id="budget-selector"
-                  label="Select your budget"
-                  labelId="budget-selector-label-id"
-                  onChange={(event: SelectChangeEvent) => {
+                  // label="Select your budget"
+                  // labelId="budget-selector-label-id"
+                  onChange={(
+                    event: React.SyntheticEvent | null,
+                    newValue: string | null,
+                  ) => {
                     console.log(event);
-                    const newBudgetID = event.target.value;
+                    const newBudgetID = newValue;
                     if (selectedBudgetID !== newBudgetID) {
                       console.debug(
                         'New budgetID selected. Clearing accounts and transactions',
@@ -335,12 +334,14 @@ function App() {
                   {
                     // TODO: better handling when empty array is returned
                     budgets == null || budgets.length === 0 ? (
-                      <MenuItem key="loading">{'Loading budgets...'}</MenuItem>
+                      <Option key="loading" value="">
+                        {'Loading budgets...'}
+                      </Option>
                     ) : (
                       budgets?.map((budget) => (
-                        <MenuItem key={budget.id} value={budget.id}>
+                        <Option key={budget.id} value={budget.id}>
                           {budget.name}
-                        </MenuItem>
+                        </Option>
                       ))
                     )
                   }
@@ -349,18 +350,21 @@ function App() {
             </Box>
 
             <Box sx={{minWidth: 240}}>
-              <FormControl disabled={selectedBudgetID == null} fullWidth>
-                <InputLabel id="account-selector-label-id">
+              <FormControl disabled={selectedBudgetID == null}>
+                <FormLabel id="account-selector-label-id">
                   Select your account
-                </InputLabel>
+                </FormLabel>
                 <Select
-                  fullWidth
+                  // fullWidth
                   id="account-selector"
-                  label="Select your account"
-                  labelId="account-selector-label-id"
-                  onChange={(event: SelectChangeEvent) => {
+                  // label="Select your account"
+                  // labelId="account-selector-label-id"
+                  onChange={(
+                    event: React.SyntheticEvent | null,
+                    newValue: string | null,
+                  ) => {
                     console.log(event);
-                    const newAccountID = event.target.value;
+                    const newAccountID = newValue;
                     if (selectedAccountID !== newAccountID) {
                       console.debug(
                         'New accountID selected. Clearing transactions',
@@ -373,12 +377,14 @@ function App() {
                   {
                     // TODO: better handling when empty array is returned
                     accounts == null || accounts.length === 0 ? (
-                      <MenuItem key="loading">{'Loading accounts...'}</MenuItem>
+                      <Option key="loading" value="">
+                        {'Loading accounts...'}
+                      </Option>
                     ) : (
                       accounts?.map((account) => (
-                        <MenuItem key={account.id} value={account.id}>
+                        <Option key={account.id} value={account.id}>
                           {account.name}
-                        </MenuItem>
+                        </Option>
                       ))
                     )
                   }
@@ -386,45 +392,40 @@ function App() {
               </FormControl>
             </Box>
 
-            <Box>
-              <FormGroup>
-                <FormLabel component="legend">
-                  Do not apply labels to...
-                </FormLabel>
-                <FormControlLabel
-                  checked={labelSyncFilterConfig.omitNonemptyMemo}
-                  control={<Checkbox />}
-                  label="Transactions With Pre-existing Memos"
-                  onChange={(_e, checked) =>
-                    setLabelSyncFilterConfig((prev) => ({
-                      ...prev,
-                      omitNonemptyMemo: checked,
-                    }))
-                  }
-                />
-                <FormControlLabel
-                  checked={labelSyncFilterConfig.omitAlreadyCategorized}
-                  control={<Checkbox />}
-                  label="Transactions That Are Already Categorized"
-                  onChange={(_e, checked) =>
-                    setLabelSyncFilterConfig((prev) => ({
-                      ...prev,
-                      omitAlreadyCategorized: checked,
-                    }))
-                  }
-                />
-                <FormControlLabel
-                  checked={labelSyncFilterConfig.omitReconciled}
-                  control={<Checkbox />}
-                  label="Reconciled Transactions"
-                  onChange={(_e, checked) =>
-                    setLabelSyncFilterConfig((prev) => ({
-                      ...prev,
-                      omitReconciled: checked,
-                    }))
-                  }
-                />
-              </FormGroup>
+            <Box role="group">
+              <Typography component="legend">
+                Do not apply labels to...
+              </Typography>
+              <Checkbox
+                checked={labelSyncFilterConfig.omitNonemptyMemo}
+                label="Transactions With Pre-existing Memos"
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLabelSyncFilterConfig((prev) => ({
+                    ...prev,
+                    omitNonemptyMemo: e.target.checked,
+                  }))
+                }
+              />
+              <Checkbox
+                checked={labelSyncFilterConfig.omitAlreadyCategorized}
+                label="Transactions That Are Already Categorized"
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLabelSyncFilterConfig((prev) => ({
+                    ...prev,
+                    omitAlreadyCategorized: e.target.checked,
+                  }))
+                }
+              />
+              <Checkbox
+                checked={labelSyncFilterConfig.omitReconciled}
+                label="Reconciled Transactions"
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLabelSyncFilterConfig((prev) => ({
+                    ...prev,
+                    omitReconciled: e.target.checked,
+                  }))
+                }
+              />
             </Box>
 
             <Box>
@@ -455,8 +456,7 @@ function App() {
                     .catch((error) => {
                       console.error('syncLabelsToYnab error:', error);
                     });
-                }}
-                variant="contained">
+                }}>
                 Sync labels to YNAB
               </Button>
             </Box>
@@ -491,18 +491,18 @@ function App() {
                     .catch((error) => {
                       console.error('undoSyncLabelsToYnab error:', error);
                     });
-                }}
-                variant="contained">
+                }}>
                 UNDO Sync
               </Button>
             </Box>
 
             <Box>
-              <FormControlLabel
+              <Checkbox
                 checked={showAllLabelsAndTransactions}
-                control={<Checkbox />}
                 label="Show all labels, transactions and matches"
-                onChange={(_e, checked) =>
+                onChange={({
+                  target: {checked},
+                }: React.ChangeEvent<HTMLInputElement>) =>
                   setShowAllLabelsAndTransactions(checked)
                 }
               />
@@ -511,8 +511,8 @@ function App() {
             {showAllLabelsAndTransactions && (
               <>
                 <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Typography sx={{mb: 2}} variant="h3">
+                  <Grid xs={12}>
+                    <Typography level="h3" sx={{mb: 2}}>
                       Labels With No Match
                     </Typography>
 
@@ -524,8 +524,8 @@ function App() {
                   </Grid>
                 </Grid>
                 <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Typography sx={{mb: 2}} variant="h3">
+                  <Grid xs={6}>
+                    <Typography level="h3" sx={{mb: 2}}>
                       Transactions
                     </Typography>
 
@@ -538,7 +538,9 @@ function App() {
                         <List>
                           {transactions.length === 0 ? (
                             <ListItem key="loading">
-                              <ListItemText primary="No transactions available" />
+                              <ListItemContent>
+                                No transactions available
+                              </ListItemContent>
                             </ListItem>
                           ) : (
                             <TransactionListItems
@@ -552,8 +554,8 @@ function App() {
                     )}
                   </Grid>
 
-                  <Grid item xs={6}>
-                    <Typography sx={{mb: 2}} variant="h3">
+                  <Grid xs={6}>
+                    <Typography level="h3" sx={{mb: 2}}>
                       Labels
                     </Typography>
 
@@ -566,7 +568,9 @@ function App() {
                         <List>
                           {labels.length === 0 ? (
                             <ListItem key="loading">
-                              <ListItemText primary="No labels available" />
+                              <ListItemContent>
+                                No labels available
+                              </ListItemContent>
                             </ListItem>
                           ) : (
                             <TransactionListItems transactions={labels} />
@@ -597,7 +601,7 @@ function App() {
               </>
             )}
           </Stack>
-        </Paper>
+        </Sheet>
       </Box>
 
       <Typography

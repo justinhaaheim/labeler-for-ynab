@@ -1,9 +1,9 @@
 import type {LabelTransactionMatch} from './Matching';
 
-import {Typography} from '@mui/material';
-import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
-import List from '@mui/material/List';
+import {Typography} from '@mui/joy';
+import Box from '@mui/joy/Box';
+import Grid from '@mui/joy/Grid';
+import List from '@mui/joy/List';
 
 import {convertYnabToStandardTransaction} from './Converters';
 import TransactionListItems from './TransactionListItems';
@@ -19,19 +19,19 @@ export default function LabelTransactionMatchTable({
 }: Props): React.ReactElement {
   return (
     <Box>
-      <Typography variant="h3">{label}</Typography>
+      <Typography level="h3">{label}</Typography>
       {matches.map((match) => (
         <Grid
           container
           key={match.label.id}
           sx={{borderBottom: '1px solid white'}}>
-          <Grid item xs={6}>
+          <Grid xs={6}>
             <List>
               <TransactionListItems transactions={[match.label]} />
             </List>
           </Grid>
 
-          <Grid item xs={6}>
+          <Grid xs={6}>
             <List>
               <TransactionListItems
                 transactions={

@@ -1,12 +1,12 @@
 import type {StandardTransactionType} from './LabelTypes';
 // import type {LabelTransactionMatch} from './Matching';
-// import {Typography} from '@mui/material';
-// import Box from '@mui/material/Box';
-// import Grid from '@mui/material/Grid';
-// import List from '@mui/material/List';
+// import {Typography} from '@mui/joy';
+// import Box from '@mui/joy/Box';
+// import Grid from '@mui/joy/Grid';
+// import List from '@mui/joy/List';
 import type {GridColDef} from '@mui/x-data-grid';
 
-import Box from '@mui/material/Box';
+import Box from '@mui/joy/Box';
 import {DataGrid} from '@mui/x-data-grid';
 
 // import {convertYnabToStandardTransaction} from './Converters';

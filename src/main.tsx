@@ -4,25 +4,23 @@ import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
+import '@fontsource/inter';
 
-import Button from '@mui/material/Button';
-import CssBaseline from '@mui/material/CssBaseline';
-import {ThemeProvider} from '@mui/material/styles';
+import Button from '@mui/joy/Button';
+import CssBaseline from '@mui/joy/CssBaseline';
+import {CssVarsProvider} from '@mui/joy/styles';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 import packageJson from '../package.json';
 import App from './App.tsx';
 import ErrorBoundary from './ErrorBoundary.ts';
-import getTheme from './getTheme.ts';
 
 console.log('App Version:', packageJson.version);
 
-const darkTheme = getTheme({mode: 'dark'});
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={darkTheme}>
+    <CssVarsProvider defaultMode="dark">
       <CssBaseline enableColorScheme />
       <ErrorBoundary
         fallback={(error, moduleName) => (
@@ -34,15 +32,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               style={{
                 whiteSpace: 'pre-wrap',
               }}>{`Application encountered an error: ${error.message}\n\nModule Name: ${moduleName}`}</pre>
-            <Button
-              onClick={() => window.location.reload()}
-              variant="contained">
+            <Button onClick={() => window.location.reload()} variant="solid">
               Reload App
             </Button>
           </div>
         )}>
         <App />
       </ErrorBoundary>
-    </ThemeProvider>
+    </CssVarsProvider>
   </React.StrictMode>,
 );
