@@ -34,7 +34,15 @@ export default function TransactionDataGrid({
 
   return (
     <Sheet>
-      <Table size={size} sx={{overflowWrap: 'break-word'}}>
+      <Table
+        hoverRow
+        size={size}
+        sx={{
+          '--Table-headerUnderlineThickness': '1px',
+          '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
+          '--TableRow-hoverBackground': 'var(--joy-palette-background-level1)',
+          overflowWrap: 'break-word',
+        }}>
         <thead>
           <tr>
             {columns.map((c) => {
