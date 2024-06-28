@@ -19,18 +19,20 @@ import Select from '@mui/joy/Select';
 import Sheet from '@mui/joy/Sheet';
 import Stack from '@mui/joy/Stack';
 import Typography from '@mui/joy/Typography';
-import {useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
 // accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
 import accountsCachedJson from './accountsCached.local.json';
+import amazonLabels2024Local from './amazonLabels2024.local';
 import budgetsCachedJson from './budgetsCached.local.json';
 import {
   convertYnabCsvToStandardTransaction,
   convertYnabToStandardTransaction,
 } from './Converters';
 import {getParsedLabels} from './getParsedLabels';
+import InputFileUpload from './InputFileUpload';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
@@ -42,7 +44,7 @@ import TransactionDataGrid from './TransactionDataGrid';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
-const USE_CACHED_RESPONSES = true;
+const USE_CACHED_RESPONSES = true; // true;
 const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 
 const UNDERSCORE_STRING = '__';
@@ -73,8 +75,12 @@ function App() {
     null,
   );
 
-  const [labels, _setLabels] = useState<StandardTransactionType[]>(() =>
-    convertYnabCsvToStandardTransaction(getParsedLabels()),
+  const [labels, setLabels] = useState<StandardTransactionType[] | null>(() =>
+    USE_CACHED_RESPONSES
+      ? convertYnabCsvToStandardTransaction(
+          getParsedLabels(amazonLabels2024Local),
+        )
+      : null,
   );
 
   const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
@@ -225,6 +231,7 @@ function App() {
           );
         const transactions = transactionsResponse.data.transactions;
         console.debug(`${transactions.length} transactions fetched`);
+        console.debug('transactions:', transactions);
         setTransactions(transactions);
         // @ts-ignore - remove later
         window.transactions = transactions;
@@ -235,6 +242,10 @@ function App() {
   /////////////////////////////////////////////////
   // Functions
   /////////////////////////////////////////////////
+
+  const onFileText = useCallback((text: string) => {
+    setLabels(convertYnabCsvToStandardTransaction(getParsedLabels(text)));
+  }, []);
 
   return (
     <>
@@ -278,7 +289,7 @@ function App() {
                   } YNAB transactions fetched`}</Typography>
 
                   <Typography>{`${
-                    labels?.length ?? 0
+                    labels?.length ?? UNDERSCORE_STRING
                   } labels loaded`}</Typography>
 
                   <Typography>{`${
@@ -286,11 +297,11 @@ function App() {
                       ? UNDERSCORE_STRING
                       : successfulMatchesCount
                   }/${
-                    labels.length
+                    labels?.length ?? UNDERSCORE_STRING
                   } labels matched to a YNAB transaction`}</Typography>
 
                   <Typography>{`${
-                    matchCandidates == null
+                    matchCandidates == null || labels == null
                       ? UNDERSCORE_STRING
                       : labels.length - successfulMatchesCount
                   } labels had no match`}</Typography>
@@ -319,6 +330,10 @@ function App() {
                 </Box>
               </CardContent>
             </Card>
+
+            <Box>
+              <InputFileUpload onFileText={onFileText} />
+            </Box>
 
             <Box sx={{minWidth: 240}}>
               <FormControl>

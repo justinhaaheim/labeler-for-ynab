@@ -2,22 +2,22 @@ import type {YnabCsvTransactionType} from './LabelTypes';
 
 import Papa from 'papaparse';
 
-import amazonLabels2024Local from './amazonLabels2024.local';
-
-export function getParsedLabels(): YnabCsvTransactionType[] {
-  const parseResult = Papa.parse<YnabCsvTransactionType>(
-    amazonLabels2024Local,
-    {
-      header: true,
-      transformHeader: (header) => header.toLowerCase(),
-    },
-  );
+export function getParsedLabels(csvText: string): YnabCsvTransactionType[] {
+  const parseResult = Papa.parse<YnabCsvTransactionType>(csvText, {
+    header: true,
+    transformHeader: (header) => header.toLowerCase(),
+  });
 
   if (parseResult.errors.length > 0) {
-    console.log('parseResult.errors', parseResult.errors);
+    console.error('Error parsing CSV file', parseResult.errors);
+    throw new Error(
+      'Error parsing CSV file: ' +
+        parseResult.errors.map((e) => e.message).join('\n'),
+    );
   }
 
   console.debug('parse result:', parseResult.data);
 
+  // TODO: Validate that the data is indeed in the correct format
   return parseResult.data;
 }
