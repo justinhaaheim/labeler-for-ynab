@@ -1,4 +1,5 @@
 import type {StandardTransactionType} from './LabelTypes';
+import type {LabelTransactionMatch, MatchCandidate} from './Matching';
 import type {UpdateLog} from './Sync';
 import type {SelectChangeEvent} from '@mui/material/Select';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
@@ -24,6 +25,7 @@ import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import {create} from 'domain';
 import {useEffect, useMemo, useState} from 'react';
 import * as ynab from 'ynab';
 
@@ -96,59 +98,76 @@ function App() {
     null,
   );
 
-  const matchCandidates = useMemo(
-    () =>
+  const [matchCandidates, setMatchCandidates] = useState<
+    MatchCandidate[] | null
+  >(null);
+
+  const [finalizedMatches, setFinalizedMatches] = useState<
+    LabelTransactionMatch[]
+  >([]);
+
+  const [finalizedMatchesFiltered, setFinalizedMatchesFiltered] = useState<
+    LabelTransactionMatch[]
+  >([]);
+
+  /**
+   * Generate matches in an effect in order to keep the UI responsive
+   */
+  useEffect(() => {
+    // const createMatches = async () => {
+    const newMatchCandidates =
       labels == null || transactions == null
         ? null
-        : getMatchCandidatesForAllLabels(labels, transactions),
-    [labels, transactions],
-  );
+        : getMatchCandidatesForAllLabels(labels, transactions);
+    setMatchCandidates(newMatchCandidates);
 
-  const finalizedMatches = useMemo(
-    () =>
-      matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [],
-    [matchCandidates],
-  );
+    const newFinalizedMatches =
+      newMatchCandidates != null
+        ? resolveBestMatchForLabels(newMatchCandidates)
+        : [];
+    setFinalizedMatches(newFinalizedMatches);
 
-  const finalizedMatchesFiltered = useMemo(
-    () =>
-      finalizedMatches.filter((match) => {
-        if (match.transactionMatch == null) {
-          return false;
-        }
+    const newFinalizedMatchesFiltered = newFinalizedMatches.filter((match) => {
+      if (match.transactionMatch == null) {
+        return false;
+      }
 
-        // Filter this transaction out if we're NOT supposed to apply
-        // to transactions with a nonempty memo, AND the memo is not empty
-        if (
-          labelSyncFilterConfig.omitNonemptyMemo &&
-          (match.transactionMatch.memo ?? '').trim().length > 0
-        ) {
-          return false;
-        }
+      // Filter this transaction out if we're NOT supposed to apply
+      // to transactions with a nonempty memo, AND the memo is not empty
+      if (
+        labelSyncFilterConfig.omitNonemptyMemo &&
+        (match.transactionMatch.memo ?? '').trim().length > 0
+      ) {
+        return false;
+      }
 
-        if (
-          labelSyncFilterConfig.omitAlreadyCategorized &&
-          match.transactionMatch.category_id != null
-        ) {
-          return false;
-        }
+      if (
+        labelSyncFilterConfig.omitAlreadyCategorized &&
+        match.transactionMatch.category_id != null
+      ) {
+        return false;
+      }
 
-        if (
-          labelSyncFilterConfig.omitReconciled &&
-          match.transactionMatch.cleared === 'reconciled'
-        ) {
-          return false;
-        }
+      if (
+        labelSyncFilterConfig.omitReconciled &&
+        match.transactionMatch.cleared === 'reconciled'
+      ) {
+        return false;
+      }
 
-        return true;
-      }),
-    [
-      finalizedMatches,
-      labelSyncFilterConfig.omitAlreadyCategorized,
-      labelSyncFilterConfig.omitNonemptyMemo,
-      labelSyncFilterConfig.omitReconciled,
-    ],
-  );
+      return true;
+    });
+    setFinalizedMatchesFiltered(newFinalizedMatchesFiltered);
+    // };
+
+    // createMatches();
+  }, [
+    labelSyncFilterConfig.omitAlreadyCategorized,
+    labelSyncFilterConfig.omitNonemptyMemo,
+    labelSyncFilterConfig.omitReconciled,
+    labels,
+    transactions,
+  ]);
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
@@ -493,7 +512,7 @@ function App() {
                 UNDO Sync
               </Button>
             </Box>
-
+            {/* 
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Typography sx={{mb: 2}} variant="h3">
@@ -580,7 +599,7 @@ function App() {
                   label="Finalized Matches"
                   matches={finalizedMatches}
                 />
-              ))}
+              ))} */}
           </Stack>
         </Paper>
       </Box>
