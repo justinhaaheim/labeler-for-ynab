@@ -240,7 +240,7 @@ function App() {
             paddingX: {sm: 5, xs: 2},
             paddingY: {sm: 8, xs: 6},
           }}
-          variant="soft">
+          variant="plain">
           <Stack alignItems="center" spacing={{sm: 3, xs: 7}}>
             <Box>
               <Typography level="h1" sx={{marginBottom: 2}}>
@@ -248,9 +248,14 @@ function App() {
               </Typography>
             </Box>
 
-            <Card sx={{width: 'fit-content'}}>
+            <Card
+              color="primary"
+              invertedColors={true}
+              size="lg"
+              sx={{width: 'fit-content'}}
+              variant="solid">
               <CardContent>
-                <Typography level="h2" sx={{marginBottom: 2}}>
+                <Typography level="title-lg" sx={{marginBottom: 2}}>
                   Status
                 </Typography>
 
@@ -457,7 +462,8 @@ function App() {
                     .catch((error) => {
                       console.error('syncLabelsToYnab error:', error);
                     });
-                }}>
+                }}
+                variant="solid">
                 Sync labels to YNAB
               </Button>
             </Box>
@@ -492,7 +498,8 @@ function App() {
                     .catch((error) => {
                       console.error('undoSyncLabelsToYnab error:', error);
                     });
-                }}>
+                }}
+                variant="solid">
                 UNDO Sync
               </Button>
             </Box>
