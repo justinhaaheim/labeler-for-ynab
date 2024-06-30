@@ -32,7 +32,9 @@ import {
   convertYnabCsvToStandardTransaction,
   convertYnabToStandardTransaction,
 } from './Converters';
+import getDateTimeString from './getDateTimeString';
 import {getParsedLabels} from './getParsedLabels';
+import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
@@ -536,6 +538,19 @@ function App() {
                 }}
                 variant="solid">
                 UNDO Sync
+              </Button>
+            </Box>
+
+            <Box>
+              <Button
+                // disabled={updateLogs == null}
+                onClick={() =>
+                  initiateUserJSONDownload(
+                    getDateTimeString() + '__YNAB-Labeler-update-logs.json',
+                    {testKey: 'testValue'},
+                  )
+                }>
+                Download update logs
               </Button>
             </Box>
 
