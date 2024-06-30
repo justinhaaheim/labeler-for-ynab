@@ -267,7 +267,9 @@ function App() {
           }}
           variant="plain">
           <Stack alignItems="center" spacing={{sm: 3, xs: 7}}>
-            <Box>
+            <Box
+            // sx={{alignItems: 'flex-end', display: 'flex', width: '100%'}}
+            >
               <ColorSchemeToggle />
             </Box>
 

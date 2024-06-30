@@ -4,7 +4,7 @@
 
 - [ ] Add oauth flow so others can use this
 - [ ] Add support for using amazon transaction csv directly
-- [ ] Add Dark mode toggle
+- [x] Add Dark mode toggle
 - [ ] Fix placement of version number (currently at the bottom of the screen, not the whole page)
 - [ ] Make update logs downloadable in case of problems, where I might need to manually apply/undo some update logs
 
