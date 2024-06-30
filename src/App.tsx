@@ -27,6 +27,7 @@ import packageJson from '../package.json';
 import accountsCachedJson from './accountsCached.local.json';
 import amazonLabels2024Local from './amazonLabels2024.local';
 import budgetsCachedJson from './budgetsCached.local.json';
+import ColorSchemeToggle from './ColorSchemeToggle';
 import {
   convertYnabCsvToStandardTransaction,
   convertYnabToStandardTransaction,
@@ -266,6 +267,10 @@ function App() {
           }}
           variant="plain">
           <Stack alignItems="center" spacing={{sm: 3, xs: 7}}>
+            <Box>
+              <ColorSchemeToggle />
+            </Box>
+
             <Box>
               <Typography level="h1" sx={{marginBottom: 2}}>
                 YNAB Labeler
