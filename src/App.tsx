@@ -294,12 +294,12 @@ function App() {
 
                 <Box sx={{mb: 2, textAlign: 'left'}}>
                   <Typography>{`${
-                    transactions?.length ?? UNDERSCORE_STRING
-                  } YNAB transactions fetched`}</Typography>
-
-                  <Typography>{`${
                     labels?.length ?? UNDERSCORE_STRING
                   } labels loaded`}</Typography>
+
+                  <Typography>{`${
+                    transactions?.length ?? UNDERSCORE_STRING
+                  } YNAB transactions fetched`}</Typography>
 
                   <Typography>{`${
                     matchCandidates == null
