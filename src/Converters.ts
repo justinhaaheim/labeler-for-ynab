@@ -1,4 +1,5 @@
 import type {
+  // AmazonOrdersCsvImportType,
   StandardTransactionType,
   YnabCsvTransactionType,
 } from './LabelTypes';
@@ -8,6 +9,10 @@ import {v4 as uuidv4} from 'uuid';
 import * as ynab from 'ynab';
 
 import parseLocaleNumber from './parseLocaleNumber';
+
+// export function getLabelsFromAmazonOrders(
+//   orders: AmazonOrdersCsvImportType[],
+// ): StandardTransactionType[] {}
 
 export function convertYnabToStandardTransaction(
   ynabTransactions: TransactionDetail[],

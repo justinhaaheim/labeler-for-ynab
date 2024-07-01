@@ -33,9 +33,9 @@ import {
   convertYnabToStandardTransaction,
 } from './Converters';
 import getDateTimeString from './getDateTimeString';
-import {getParsedLabels} from './getParsedLabels';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
+import {getParsedLabelsFromYnabCsv} from './LabelParser';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
@@ -81,7 +81,7 @@ function App() {
   const [labels, setLabels] = useState<StandardTransactionType[] | null>(() =>
     USE_CACHED_RESPONSES
       ? convertYnabCsvToStandardTransaction(
-          getParsedLabels(amazonLabels2024Local),
+          getParsedLabelsFromYnabCsv(amazonLabels2024Local),
         )
       : null,
   );
@@ -247,7 +247,9 @@ function App() {
   /////////////////////////////////////////////////
 
   const onFileText = useCallback((text: string) => {
-    setLabels(convertYnabCsvToStandardTransaction(getParsedLabels(text)));
+    setLabels(
+      convertYnabCsvToStandardTransaction(getParsedLabelsFromYnabCsv(text)),
+    );
   }, []);
 
   return (
