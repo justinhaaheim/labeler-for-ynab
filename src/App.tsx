@@ -340,10 +340,10 @@ function App() {
                 <Select
                   id="budget-selector"
                   onChange={(
-                    event: React.SyntheticEvent | null,
+                    _event: React.SyntheticEvent | null,
                     newValue: string | null,
                   ) => {
-                    console.log(event);
+                    // console.log(event);
                     const newBudgetID = newValue;
                     if (selectedBudgetID !== newBudgetID) {
                       console.debug(

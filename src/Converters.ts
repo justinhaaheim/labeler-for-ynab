@@ -110,7 +110,7 @@ function getTransactionDataFromAmazonPaymentsEntry(
   closeDate: Date,
   orderTotal: number,
 ) {
-  console.log('⭐️ getDataFromAmazonPaymentsString start');
+  console.log('[getDataFromAmazonPaymentsString] start');
 
   // console.log("s type:", typeof s)
   // console.log({s, delimiter, fallback})
@@ -156,6 +156,8 @@ function getDataFromAmazonPaymentsString(
 ): TransactionData[] {
   const transactionData = s
     .split(AMAZON_PAYMENTS_TRANSACTION_DELIMITER)
+    // Filter out empty strings
+    .filter((s) => s.trim().length > 0)
     .map((transactionString) =>
       getTransactionDataFromAmazonPaymentsEntry(
         transactionString,
@@ -175,10 +177,9 @@ export function getLabelsFromAmazonOrders(
   orders: AmazonOrdersCsvImportType[],
 ): StandardTransactionType[] {
   /**
-   * NOTE: We may not need this, as the data we're using from the amazon transaction
+   * NOTE: We may not need this order occurrence counting, as the data we're using from the amazon transaction
    * scraper is a list of orders, so there shouldn't be duplicates
    */
-
   // Count the total number of occurrences of each order_id, so that we can
   // know in advance if there will be multiple labels for the same order_id.
   const orderIdTotalOccurrenceCounter: {[key: string]: number} = {};
@@ -211,6 +212,7 @@ export function getLabelsFromAmazonOrders(
       const parsedOrderTotal = parseLocaleNumber(order.total);
       const parsedDate = new Date(order.date);
 
+      // TODO: For digital orders sometimes the order total is empty, but the payments field contains a date and amount. Use that if possible.
       if (isNaN(parsedOrderTotal)) {
         console.warn(
           '[getLabelsFromAmazonOrders] parsedOrderTotal is NaN; skipping order entry',
@@ -230,7 +232,9 @@ export function getLabelsFromAmazonOrders(
         order.payments,
         parsedDate,
         parsedOrderTotal,
-      );
+      ).filter(
+        (transaction) => transaction.amount != null && transaction.date != null,
+      ) as TransactionDataNonNullable[];
 
       const transactionDataTotal = transactionData.reduce(
         (acc, curr) => acc + (curr.amount ?? 0),
@@ -250,15 +254,12 @@ export function getLabelsFromAmazonOrders(
         payee: AMAZON_PAYEE_NAME,
       };
 
-      if (
-        transactionData.every(
-          (transaction) =>
-            transaction.amount != null && transaction.date != null,
-        )
-      ) {
+      const transactionDataFiltered = transactionData;
+
+      if (transactionDataFiltered.length === 0) {
         console.warn(
-          '[getLabelsFromAmazonOrders] transaction data contains null values. Bailing on using transaction data.',
-          {transactionData},
+          '[getLabelsFromAmazonOrders] no viable transactions from payment data. Bailing on using transaction data.',
+          {order, transactionData},
         );
         return orderLabel;
       }
@@ -272,14 +273,20 @@ export function getLabelsFromAmazonOrders(
       }
 
       return (transactionData as TransactionDataNonNullable[]).map(
-        (transaction, i) => ({
-          // The convention for the standard transaction type is that outflows are negative
-          amount: -1 * transaction.amount,
-          date: getDateString(transaction.date),
-          id: `${labelId}__${i}_of_${transactionData.length}`,
-          memo: SPLIT_TRANSACTION_PREFIX + order.items,
-          payee: AMAZON_PAYEE_NAME,
-        }),
+        (transaction, i) => {
+          const transactionId =
+            transactionData.length === 1
+              ? labelId
+              : `${labelId}__${i + 1}_of_${transactionData.length}`;
+          return {
+            // The convention for the standard transaction type is that outflows are negative
+            amount: -1 * transaction.amount,
+            date: getDateString(transaction.date),
+            id: transactionId,
+            memo: SPLIT_TRANSACTION_PREFIX + order.items,
+            payee: AMAZON_PAYEE_NAME,
+          };
+        },
       );
     });
 

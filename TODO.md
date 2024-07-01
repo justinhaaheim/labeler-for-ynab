@@ -15,6 +15,9 @@
 
   - [ ] Should I try to parse the label that's already in the memo in YNAB, and then make sure I don't use that label for something else? The text would have to be verbatim, unless I could come up with some other unique identifier (amazon order # ??)
 
+- [ ] Consider treating all currency as integers to avoid floating point errors. Not sure how applicable that will be here.
+- [ ] Show the user when an amazon csv row (or payments field) is being ignored because it can't be parsed correctly
+
 - [x] Add Dark mode toggle
 - [x] Make update logs downloadable in case of problems, where I might need to manually apply/undo some update logs
 - [x] Move calls to matching functions into effects in order to keep the UI responsive

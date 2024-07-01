@@ -16,11 +16,11 @@ type GridColumnDef = {
 };
 
 const columns: GridColumnDef[] = [
+  {field: 'id', headerName: 'ID'},
   {field: 'date', headerName: 'Date'},
   {field: 'payee', headerName: 'Payee'},
   {field: 'memo', headerName: 'Memo', width: '50%'},
   {field: 'amount', headerName: 'Amount'},
-  // {field: 'id', headerName: 'ID', width: 150},
 ];
 
 export default function TransactionDataGrid({
