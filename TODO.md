@@ -3,20 +3,18 @@
 ## 2024-06-22
 
 - [ ] Add oauth flow so others can use this
+- [ ] Specify a `startingFrom` date (or whatever it's called) when getting transactions from YNAB, so we don't have to get all transactions every time. Calculate this based on the earliest date found in the imported data
 - [x] Add support for using amazon transaction csv directly
-
   - [ ] Offer to create shorturls to the amazon order pages
   - [ ] Get transaction dates and amounts from payments field (temporary)
   - [ ] Do anything else that I do in the google sheet version
-
 - [ ] Fix placement of version number (currently at the bottom of the screen, not the whole page)
 - [ ] Add check for "Amazon" or "AMZN" in the payee field to ensure we don't label something that's not amazon
 - [ ] Add code that checks for our labels and doesn't re-label anything
-
   - [ ] Should I try to parse the label that's already in the memo in YNAB, and then make sure I don't use that label for something else? The text would have to be verbatim, unless I could come up with some other unique identifier (amazon order # ??)
-
 - [ ] Consider treating all currency as integers to avoid floating point errors. Not sure how applicable that will be here.
 - [ ] Show the user when an amazon csv row (or payments field) is being ignored because it can't be parsed correctly
+- [ ] Maybe get all budgets and account names from YNAB all at once to save a roundtrip?
 
 - [x] Add Dark mode toggle
 - [x] Make update logs downloadable in case of problems, where I might need to manually apply/undo some update logs
