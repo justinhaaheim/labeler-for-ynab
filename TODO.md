@@ -6,7 +6,8 @@
 - [ ] Specify a `startingFrom` date (or whatever it's called) when getting transactions from YNAB, so we don't have to get all transactions every time. Calculate this based on the earliest date found in the imported data
 - [x] Add support for using amazon transaction csv directly
   - [ ] Offer to create shorturls to the amazon order pages
-  - [ ] Get transaction dates and amounts from payments field (temporary)
+  - [x] Get transaction dates and amounts from payments field (temporary)
+  - [ ] Use the "to" field to annotate the transactions by person. It's not always the same as the amazon account holder, but it's helpful regardless (it says whoever the item is shipped to, which is still useful)
   - [ ] Do anything else that I do in the google sheet version
 - [ ] Fix placement of version number (currently at the bottom of the screen, not the whole page)
 - [ ] Add check for "Amazon" or "AMZN" in the payee field to ensure we don't label something that's not amazon
