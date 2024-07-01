@@ -19,7 +19,7 @@ import Select from '@mui/joy/Select';
 import Sheet from '@mui/joy/Sheet';
 import Stack from '@mui/joy/Stack';
 import Typography from '@mui/joy/Typography';
-import {useEffect, useMemo, useState} from 'react';
+import {useDeferredValue, useEffect, useMemo, useState} from 'react';
 import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
@@ -88,7 +88,9 @@ function App() {
       omitReconciled: true,
     });
 
-  const [labelPrefix, setLabelPrefix] = useState<string>('');
+  const [labelPrefixNotDeferred, setLabelPrefixNotDeferred] =
+    useState<string>('');
+  const labelPrefix = useDeferredValue(labelPrefixNotDeferred);
 
   const [updateLogs, setUpdateLogs] = useState<UpdateLogChunk | null>(null);
 
@@ -347,9 +349,8 @@ function App() {
 
             <Box>
               <InputFileUpload
-                labelPrefix={labelPrefix}
+                onLabelPrefixChange={setLabelPrefixNotDeferred}
                 onNewLabels={setLabelsWithoutPrefix}
-                setLabelPrefix={setLabelPrefix}
               />
             </Box>
 

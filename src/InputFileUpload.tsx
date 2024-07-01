@@ -14,17 +14,16 @@ import Input from '@mui/joy/Input';
 import Stack from '@mui/joy/Stack';
 import SvgIcon from '@mui/joy/SvgIcon';
 import Typography from '@mui/joy/Typography';
-import {useState} from 'react';
+import {useCallback, useState} from 'react';
 
 import {convertParsedLabelsToStandardTransaction} from './Converters';
 import FileUpload from './FileUpload';
 import {getParsedLabelsFromCsv} from './LabelParser';
 
 type Props = {
-  labelPrefix: string;
+  onLabelPrefixChange: (prefix: string) => void;
   // onFileText: (text: string) => void;
   onNewLabels: (labels: StandardTransactionType[]) => void;
-  setLabelPrefix: React.Dispatch<React.SetStateAction<string>>;
 };
 
 const VisuallyHiddenInput = styled('input')`
@@ -41,14 +40,14 @@ const VisuallyHiddenInput = styled('input')`
 
 export default function InputFileUpload({
   onNewLabels,
-  labelPrefix,
-  setLabelPrefix,
+  onLabelPrefixChange,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [parsedLabels, setParsedLabels] = useState<ParsedLabelsTyped | null>(
     null,
   );
   const [labels, setLabels] = useState<StandardTransactionType[] | null>(null);
+  const [labelPrefix, setLabelPrefix] = useState<string>('');
 
   return (
     <Card sx={{maxWidth: '35em'}}>
@@ -140,9 +139,10 @@ export default function InputFileUpload({
           <FormControl sx={{maxWidth: '25em'}}>
             <FormLabel>Label Prefix</FormLabel>
             <Input
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setLabelPrefix(e.target.value)
-              }
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setLabelPrefix(e.target.value);
+                onLabelPrefixChange(e.target.value);
+              }}
               placeholder="Prefix"
               value={labelPrefix}
             />
