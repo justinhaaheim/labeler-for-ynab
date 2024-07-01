@@ -1,3 +1,6 @@
+const jsonMimeType = 'application/json';
+
+// Taken from: https://stackoverflow.com/a/65939108/18265617
 export default function initiateUserJSONDownload(
   filename: string,
   jsonObject: unknown,
@@ -6,7 +9,7 @@ export default function initiateUserJSONDownload(
   const blob = new Blob(
     [JSON.stringify(jsonObject, null, config?.prettyFormat === true ? 2 : 0)],
     {
-      type: 'application/json',
+      type: jsonMimeType,
     },
   );
   const link = document.createElement('a');
@@ -16,7 +19,7 @@ export default function initiateUserJSONDownload(
   link.href = objectURL;
 
   // Is this needed?
-  link.dataset['downloadurl'] = ['text/json', link.download, link.href].join(
+  link.dataset['downloadurl'] = [jsonMimeType, link.download, link.href].join(
     ':',
   );
 
