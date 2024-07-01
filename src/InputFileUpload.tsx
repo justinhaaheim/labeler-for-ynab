@@ -14,7 +14,8 @@ import Input from '@mui/joy/Input';
 import Stack from '@mui/joy/Stack';
 import SvgIcon from '@mui/joy/SvgIcon';
 import Typography from '@mui/joy/Typography';
-import {useCallback, useState} from 'react';
+import _ from 'lodash';
+import {useEffect, useMemo, useState} from 'react';
 
 import {convertParsedLabelsToStandardTransaction} from './Converters';
 import FileUpload from './FileUpload';
@@ -25,6 +26,8 @@ type Props = {
   // onFileText: (text: string) => void;
   onNewLabels: (labels: StandardTransactionType[]) => void;
 };
+
+const LABEL_PREFIX_CHANGE_DEBOUNCE_WAIT_MS = 500;
 
 const VisuallyHiddenInput = styled('input')`
   clip: rect(0 0 0 0);
@@ -48,6 +51,20 @@ export default function InputFileUpload({
   );
   const [labels, setLabels] = useState<StandardTransactionType[] | null>(null);
   const [labelPrefix, setLabelPrefix] = useState<string>('');
+
+  const onLabelPrefixChangeDebounced = useMemo(() => {
+    return _.debounce(
+      onLabelPrefixChange,
+      LABEL_PREFIX_CHANGE_DEBOUNCE_WAIT_MS,
+    );
+  }, [onLabelPrefixChange]);
+
+  useEffect(() => {
+    return () => {
+      // Prevent the debounced function from being called after the component unmounts
+      onLabelPrefixChangeDebounced.cancel();
+    };
+  }, [onLabelPrefixChangeDebounced]);
 
   return (
     <Card sx={{maxWidth: '35em'}}>
@@ -141,7 +158,7 @@ export default function InputFileUpload({
             <Input
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setLabelPrefix(e.target.value);
-                onLabelPrefixChange(e.target.value);
+                onLabelPrefixChangeDebounced(e.target.value);
               }}
               placeholder="Prefix"
               value={labelPrefix}
