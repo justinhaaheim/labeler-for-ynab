@@ -19,7 +19,7 @@ import Select from '@mui/joy/Select';
 import Sheet from '@mui/joy/Sheet';
 import Stack from '@mui/joy/Stack';
 import Typography from '@mui/joy/Typography';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
@@ -28,14 +28,10 @@ import accountsCachedJson from './accountsCached.local.json';
 import amazonLabels2024Local from './amazonLabels2024.local';
 import budgetsCachedJson from './budgetsCached.local.json';
 import ColorSchemeToggle from './ColorSchemeToggle';
-import {
-  convertYnabCsvToStandardTransaction,
-  convertYnabToStandardTransaction,
-} from './Converters';
+import {convertYnabToStandardTransaction, getLabelsFromCsv} from './Converters';
 import getDateTimeString from './getDateTimeString';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
-import {getParsedLabelsFromYnabCsv} from './LabelParser';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
@@ -47,7 +43,7 @@ import TransactionDataGrid from './TransactionDataGrid';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
-const USE_CACHED_RESPONSES = true; // true;
+const USE_CACHED_RESPONSES = false; // true;
 const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 
 const UNDERSCORE_STRING = '__';
@@ -79,11 +75,7 @@ function App() {
   );
 
   const [labels, setLabels] = useState<StandardTransactionType[] | null>(() =>
-    USE_CACHED_RESPONSES
-      ? convertYnabCsvToStandardTransaction(
-          getParsedLabelsFromYnabCsv(amazonLabels2024Local),
-        )
-      : null,
+    USE_CACHED_RESPONSES ? getLabelsFromCsv(amazonLabels2024Local) : null,
   );
 
   const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
@@ -246,12 +238,6 @@ function App() {
   // Functions
   /////////////////////////////////////////////////
 
-  const onFileText = useCallback((text: string) => {
-    setLabels(
-      convertYnabCsvToStandardTransaction(getParsedLabelsFromYnabCsv(text)),
-    );
-  }, []);
-
   return (
     <>
       <Box
@@ -343,7 +329,7 @@ function App() {
             </Card>
 
             <Box>
-              <InputFileUpload onFileText={onFileText} />
+              <InputFileUpload onNewLabels={setLabels} />
             </Box>
 
             <Box sx={{minWidth: 240}}>

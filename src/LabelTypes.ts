@@ -1,3 +1,6 @@
+// TODO: Support other names in other locales?
+export const AMAZON_PAYEE_NAME = 'Amazon';
+
 // NOTE: the original keys have spaces, so the underscores must be added upon import
 export const AMAZON_IMPORT_KEYS = [
   'order_id',
@@ -12,7 +15,8 @@ export const AMAZON_IMPORT_KEYS = [
   'tax',
   'refund',
   'payments',
-  'invoice',
+  // invoice is optional
+  // 'invoice',
 ] as const;
 
 export type AmazonOrdersCsvImportType = {
@@ -24,24 +28,6 @@ export type AmazonOrdersCsvImportType = {
 //   (typeof AMAZON_IMPORT_KEYS)[number],
 //   string
 // >;
-
-/* eslint-disable typescript-sort-keys/interface */
-// export type AmazonOrdersCsvImportType = {
-//   order_id: string;
-//   order_url: string;
-//   items: string;
-//   to: string;
-//   date: string;
-//   total: string;
-//   shipping: string;
-//   shipping_refund: string;
-//   gift: string;
-//   tax: string;
-//   refund: string;
-//   payments: string;
-//   invoice: string;
-// };
-/* eslint-enable typescript-sort-keys/interface */
 
 export type StandardTransactionType = {
   amount: number;

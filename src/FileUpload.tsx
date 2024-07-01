@@ -12,16 +12,28 @@ import LinearProgress from '@mui/joy/LinearProgress';
 import Typography from '@mui/joy/Typography';
 import * as React from 'react';
 
+import {type ParsedLabelFormatTypes, PRETTY_NAME_LOOKUP} from './LabelParser';
+
 export default function FileUpload(
   props: CardProps & {
     fileName: string;
     fileSize: string;
     icon?: React.ReactElement;
+    importType: ParsedLabelFormatTypes | null;
     itemCount: number;
     progress: number;
   },
 ) {
-  const {icon, fileName, fileSize, progress, sx, ...other} = props;
+  const {
+    icon,
+    fileName,
+    fileSize,
+    itemCount,
+    importType,
+    progress,
+    sx,
+    ...other
+  } = props;
   return (
     <Card
       orientation="horizontal"
@@ -45,9 +57,13 @@ export default function FileUpload(
         variant="soft">
         <div>{icon ?? <InsertDriveFileRoundedIcon />}</div>
       </AspectRatio>
-      <CardContent>
+      <CardContent sx={{textAlign: 'start'}}>
         <Typography fontSize="sm">{fileName}</Typography>
         <Typography level="body-xs">{fileSize}</Typography>
+        <Typography level="body-xs">{`${
+          importType == null ? 'No ' : PRETTY_NAME_LOOKUP[importType]
+        } format detected`}</Typography>
+        <Typography level="body-xs">{itemCount} labels parsed</Typography>
         <Box sx={{alignItems: 'center', display: 'flex', gap: 1}}>
           <LinearProgress
             color="neutral"

@@ -121,6 +121,8 @@ module.exports = {
 
     'no-unused-vars': NO_UNUSED_VARS_CONFIG,
 
+    'no-var': ERROR,
+
     quotes: [ERROR, 'single', {allowTemplateLiterals: true, avoidEscape: true}],
 
     'react-hooks/exhaustive-deps': ERROR,

@@ -1,3 +1,6 @@
+import type {ParsedLabelsTyped} from './LabelParser';
+import type {StandardTransactionType} from './LabelTypes';
+
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 import {styled} from '@mui/joy';
 import Box from '@mui/joy/Box';
@@ -9,10 +12,13 @@ import SvgIcon from '@mui/joy/SvgIcon';
 import Typography from '@mui/joy/Typography';
 import {useState} from 'react';
 
+import {convertParsedLabelsToStandardTransaction} from './Converters';
 import FileUpload from './FileUpload';
+import {getParsedLabelsFromCsv} from './LabelParser';
 
 type Props = {
-  onFileText: (text: string) => void;
+  // onFileText: (text: string) => void;
+  onNewLabels: (labels: StandardTransactionType[]) => void;
 };
 
 const VisuallyHiddenInput = styled('input')`
@@ -27,8 +33,12 @@ const VisuallyHiddenInput = styled('input')`
   width: 1px;
 `;
 
-export default function InputFileUpload({onFileText}: Props) {
+export default function InputFileUpload({onNewLabels}: Props) {
   const [file, setFile] = useState<File | null>(null);
+  const [parsedLabels, setParsedLabels] = useState<ParsedLabelsTyped | null>(
+    null,
+  );
+  const [labels, setLabels] = useState<StandardTransactionType[] | null>(null);
 
   return (
     <Card>
@@ -87,7 +97,13 @@ export default function InputFileUpload({onFileText}: Props) {
                   // this will then display a text file
                   const fileText = reader.result as string;
                   console.debug('File text', fileText);
-                  onFileText(fileText);
+
+                  const newParsedLabels = getParsedLabelsFromCsv(fileText);
+                  setParsedLabels(newParsedLabels);
+                  const newLabels =
+                    convertParsedLabelsToStandardTransaction(newParsedLabels);
+                  setLabels(newLabels);
+                  onNewLabels(newLabels);
                 },
                 false,
               );
@@ -102,7 +118,8 @@ export default function InputFileUpload({onFileText}: Props) {
             fileName={file.name}
             fileSize={`${Math.round(file.size / 1000)}kb`}
             icon={<InsertDriveFileRoundedIcon />}
-            itemCount={50}
+            importType={parsedLabels?._type ?? null}
+            itemCount={labels?.length ?? 0}
             progress={100}
             sx={{maxWidth: '35em'}}
           />

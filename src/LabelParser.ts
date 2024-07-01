@@ -7,7 +7,10 @@ import {
   type YnabCsvTransactionType,
 } from './LabelTypes';
 
-type ParsedLabelsTyped =
+export const PARSED_LABEL_FORMAT_TYPES = ['amazon', 'ynab'] as const;
+export type ParsedLabelFormatTypes = (typeof PARSED_LABEL_FORMAT_TYPES)[number];
+
+export type ParsedLabelsTyped =
   | {
       _type: 'amazon';
       labels: AmazonOrdersCsvImportType[];
@@ -16,6 +19,13 @@ type ParsedLabelsTyped =
       _type: 'ynab';
       labels: YnabCsvTransactionType[];
     };
+
+export const PRETTY_NAME_LOOKUP: {
+  [key in ParsedLabelFormatTypes]: string;
+} = {
+  amazon: 'Amazon',
+  ynab: 'YNAB',
+};
 
 export function isValidAmazonOrderImport(
   parseResult: Papa.ParseResult<{[key: string]: string}>,
@@ -56,6 +66,7 @@ export function getParsedLabelsFromCsv(csvText: string): ParsedLabelsTyped {
   console.debug('parse result:', parseResult.data);
 
   if (isValidAmazonOrderImport(parseResult)) {
+    console.debug('CSV import is Amazon format');
     return {
       _type: 'amazon',
       labels: parseResult.data as AmazonOrdersCsvImportType[],
@@ -63,6 +74,7 @@ export function getParsedLabelsFromCsv(csvText: string): ParsedLabelsTyped {
   }
 
   if (isValidYnabCsvImport(parseResult)) {
+    console.debug('CSV import is YNAB format');
     return {
       _type: 'ynab',
       labels: parseResult.data as YnabCsvTransactionType[],
