@@ -3,8 +3,12 @@
 ## 2024-06-22
 
 - [ ] Add oauth flow so others can use this
-- [ ] Add support for using amazon transaction csv directly
+- [x] Add support for using amazon transaction csv directly
+
   - [ ] Offer to create shorturls to the amazon order pages
+  - [ ] Get transaction dates and amounts from payments field (temporary)
+  - [ ] Do anything else that I do in the google sheet version
+
 - [ ] Fix placement of version number (currently at the bottom of the screen, not the whole page)
 - [ ] Add check for "Amazon" or "AMZN" in the payee field to ensure we don't label something that's not amazon
 - [ ] Add code that checks for our labels and doesn't re-label anything

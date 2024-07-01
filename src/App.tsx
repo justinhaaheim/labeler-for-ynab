@@ -29,7 +29,7 @@ import amazonLabels2024Local from './amazonLabels2024.local';
 import budgetsCachedJson from './budgetsCached.local.json';
 import ColorSchemeToggle from './ColorSchemeToggle';
 import {convertYnabToStandardTransaction, getLabelsFromCsv} from './Converters';
-import getDateTimeString from './getDateTimeString';
+import {getDateTimeString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
