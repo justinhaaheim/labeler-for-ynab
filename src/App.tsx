@@ -1,5 +1,5 @@
 import type {StandardTransactionType} from './LabelTypes';
-import type {UpdateLog} from './Sync';
+import type {UpdateLogChunk} from './Sync';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 
 import Box from '@mui/joy/Box';
@@ -93,9 +93,9 @@ function App() {
       omitReconciled: true,
     });
 
-  const [updateLogs, setUpdateLogs] = useState<UpdateLog[] | null>(null);
+  const [updateLogs, setUpdateLogs] = useState<UpdateLogChunk | null>(null);
 
-  const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLog[] | null>(
+  const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunk | null>(
     null,
   );
 
@@ -163,10 +163,10 @@ function App() {
   const successfulMatchesThatPassFiltersCount = finalizedMatchesFiltered.length;
 
   const successfulSyncsCount: number | null =
-    updateLogs?.filter((log) => log.updateSucceeded).length ?? null;
+    updateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
 
   const successfulUndosCount: number | null =
-    undoUpdateLogs?.filter((log) => log.updateSucceeded).length ?? null;
+    undoUpdateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
 
   useEffect(() => {
     if (budgets == null) {
@@ -330,11 +330,11 @@ function App() {
 
                 <Box sx={{textAlign: 'left'}}>
                   <Typography>{`${successfulSyncsCount ?? UNDERSCORE_STRING}/${
-                    updateLogs?.length ?? UNDERSCORE_STRING
+                    updateLogs?.logs.length ?? UNDERSCORE_STRING
                   } YNAB transaction updates successful`}</Typography>
 
                   <Typography>{`${successfulUndosCount ?? UNDERSCORE_STRING}/${
-                    undoUpdateLogs?.length ?? UNDERSCORE_STRING
+                    undoUpdateLogs?.logs.length ?? UNDERSCORE_STRING
                   } YNAB undo updates successful`}</Typography>
                 </Box>
               </CardContent>
@@ -509,7 +509,7 @@ function App() {
               <Button
                 disabled={
                   updateLogs == null ||
-                  updateLogs.length === 0 ||
+                  updateLogs.logs.length === 0 ||
                   undoUpdateLogs != null
                 }
                 onClick={() => {
@@ -526,7 +526,7 @@ function App() {
 
                   undoSyncLabelsToYnab({
                     budgetID: selectedBudgetID,
-                    updateLogs,
+                    updateLogChunk: updateLogs,
                     ynabAPI,
                   })
                     .then((undoUpdateLogs) => {
@@ -543,11 +543,12 @@ function App() {
 
             <Box>
               <Button
-                // disabled={updateLogs == null}
+                disabled={updateLogs == null && undoUpdateLogs == null}
                 onClick={() =>
                   initiateUserJSONDownload(
                     getDateTimeString() + '__YNAB-Labeler-update-logs.json',
-                    {testKey: 'testValue'},
+                    [updateLogs, undoUpdateLogs].filter(Boolean),
+                    {prettyFormat: true},
                   )
                 }>
                 Download update logs

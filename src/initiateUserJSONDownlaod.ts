@@ -1,10 +1,14 @@
 export default function initiateUserJSONDownload(
   filename: string,
   jsonObject: unknown,
+  config?: {prettyFormat: boolean},
 ): void {
-  const blob = new Blob([JSON.stringify(jsonObject)], {
-    type: 'application/json',
-  });
+  const blob = new Blob(
+    [JSON.stringify(jsonObject, null, config?.prettyFormat === true ? 2 : 0)],
+    {
+      type: 'application/json',
+    },
+  );
   const link = document.createElement('a');
 
   link.download = filename;

@@ -16,17 +16,23 @@ type SyncConfig = {
 
 type UndoConfig = {
   budgetID: string;
-  updateLogs: UpdateLog[];
+  updateLogChunk: UpdateLogChunk;
   ynabAPI: API;
 };
 
-export type UpdateLog = {
+export type UpdateLogEntry = {
   id: string;
-  labelAppended: string | null;
-  method: 'append' | 'reset';
+  label: string | null;
+  method: 'append' | 'truncate';
   newMemo: string;
   previousMemo: string | null | undefined;
   updateSucceeded?: boolean;
+};
+
+export type UpdateLogChunk = {
+  logs: UpdateLogEntry[];
+  timestamp: number;
+  type: 'sync' | 'undo-sync';
 };
 
 export function generateStandardLabel(label: StandardTransactionType): string {
@@ -37,10 +43,10 @@ export async function syncLabelsToYnab({
   budgetID,
   ynabAPI,
   finalizedMatches,
-}: SyncConfig): Promise<UpdateLog[]> {
+}: SyncConfig): Promise<UpdateLogChunk> {
   console.log('syncLabelsToYnab');
 
-  let updateLogs: UpdateLog[] = [];
+  let updateLogs: UpdateLogEntry[] = [];
 
   const saveTransactionsToExecute: SaveTransactionWithId[] = (
     finalizedMatches.filter(
@@ -70,7 +76,7 @@ export async function syncLabelsToYnab({
 
     updateLogs.push({
       id: ynabTransactionToUpdate.id,
-      labelAppended: match.label.memo,
+      label: match.label.memo,
       method: 'append',
       newMemo,
       previousMemo: ynabTransactionToUpdate.memo,
@@ -105,24 +111,24 @@ export async function syncLabelsToYnab({
 
   console.debug('saveTransactionResponse', saveTransactionResponse);
 
-  return updateLogs;
+  return {logs: updateLogs, timestamp: Date.now(), type: 'sync'};
 }
 
 export async function undoSyncLabelsToYnab({
   budgetID,
   ynabAPI,
-  updateLogs,
-}: UndoConfig): Promise<UpdateLog[]> {
+  updateLogChunk,
+}: UndoConfig): Promise<UpdateLogChunk> {
   console.log('undoSyncLabelsToYnab');
 
-  let undoUpdateLogs: UpdateLog[] = [];
+  let undoUpdateLogs: UpdateLogEntry[] = [];
 
-  const saveTransactionsToExecute: SaveTransactionWithId[] = updateLogs.map(
-    (log) => {
+  const saveTransactionsToExecute: SaveTransactionWithId[] =
+    updateLogChunk.logs.map((log) => {
       undoUpdateLogs.push({
         id: log.id,
-        labelAppended: null,
-        method: 'reset',
+        label: log.label,
+        method: 'truncate',
         newMemo: log.previousMemo ?? '',
         previousMemo: log.newMemo,
       });
@@ -136,8 +142,7 @@ export async function undoSyncLabelsToYnab({
          */
         memo: log.previousMemo,
       };
-    },
-  );
+    });
 
   console.debug(
     '[undoSyncLabelsToYnab] saveTransactionsToExecute',
@@ -163,5 +168,9 @@ export async function undoSyncLabelsToYnab({
     saveTransactionResponse,
   );
 
-  return undoUpdateLogs;
+  return {
+    logs: undoUpdateLogs,
+    timestamp: Date.now(),
+    type: 'undo-sync',
+  };
 }
