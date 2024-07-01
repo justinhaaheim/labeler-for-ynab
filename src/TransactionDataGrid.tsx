@@ -42,6 +42,9 @@ export default function TransactionDataGrid({
           '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
           '--TableRow-hoverBackground': 'var(--joy-palette-background-level1)',
           overflowWrap: 'break-word',
+
+          // Ensure that multiple spaces in a row are actually rendered in HTML
+          whiteSpace: 'pre-wrap',
         }}>
         <thead>
           <tr>

@@ -47,6 +47,7 @@ const USE_CACHED_RESPONSES = false; // true;
 const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 
 const UNDERSCORE_STRING = '__';
+const LABEL_PREFIX_SEPARATOR = ' ';
 
 const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
 
@@ -74,7 +75,9 @@ function App() {
     null,
   );
 
-  const [labels, setLabels] = useState<StandardTransactionType[] | null>(() =>
+  const [labelsWithoutPrefix, setLabelsWithoutPrefix] = useState<
+    StandardTransactionType[] | null
+  >(() =>
     USE_CACHED_RESPONSES ? getLabelsFromCsv(amazonLabels2024Local) : null,
   );
 
@@ -85,6 +88,8 @@ function App() {
       omitReconciled: true,
     });
 
+  const [labelPrefix, setLabelPrefix] = useState<string>('');
+
   const [updateLogs, setUpdateLogs] = useState<UpdateLogChunk | null>(null);
 
   const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunk | null>(
@@ -93,6 +98,18 @@ function App() {
 
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
+
+  const labels = useMemo(
+    () =>
+      labelsWithoutPrefix?.map((label) => ({
+        ...label,
+        memo:
+          labelPrefix.trim().length > 0
+            ? labelPrefix + LABEL_PREFIX_SEPARATOR + label.memo
+            : label.memo,
+      })),
+    [labelPrefix, labelsWithoutPrefix],
+  );
 
   const matchCandidates = useMemo(
     () =>
@@ -329,7 +346,11 @@ function App() {
             </Card>
 
             <Box>
-              <InputFileUpload onNewLabels={setLabels} />
+              <InputFileUpload
+                labelPrefix={labelPrefix}
+                onNewLabels={setLabelsWithoutPrefix}
+                setLabelPrefix={setLabelPrefix}
+              />
             </Box>
 
             <Box sx={{minWidth: 240}}>

@@ -7,6 +7,10 @@ import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Card from '@mui/joy/Card';
 import Divider from '@mui/joy/Divider';
+import FormControl from '@mui/joy/FormControl';
+import FormHelperText from '@mui/joy/FormHelperText';
+import FormLabel from '@mui/joy/FormLabel';
+import Input from '@mui/joy/Input';
 import Stack from '@mui/joy/Stack';
 import SvgIcon from '@mui/joy/SvgIcon';
 import Typography from '@mui/joy/Typography';
@@ -17,8 +21,10 @@ import FileUpload from './FileUpload';
 import {getParsedLabelsFromCsv} from './LabelParser';
 
 type Props = {
+  labelPrefix: string;
   // onFileText: (text: string) => void;
   onNewLabels: (labels: StandardTransactionType[]) => void;
+  setLabelPrefix: React.Dispatch<React.SetStateAction<string>>;
 };
 
 const VisuallyHiddenInput = styled('input')`
@@ -33,7 +39,11 @@ const VisuallyHiddenInput = styled('input')`
   width: 1px;
 `;
 
-export default function InputFileUpload({onNewLabels}: Props) {
+export default function InputFileUpload({
+  onNewLabels,
+  labelPrefix,
+  setLabelPrefix,
+}: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [parsedLabels, setParsedLabels] = useState<ParsedLabelsTyped | null>(
     null,
@@ -41,7 +51,7 @@ export default function InputFileUpload({onNewLabels}: Props) {
   const [labels, setLabels] = useState<StandardTransactionType[] | null>(null);
 
   return (
-    <Card>
+    <Card sx={{maxWidth: '35em'}}>
       <Box sx={{mb: 1}}>
         <Typography level="title-md">Upload Labels</Typography>
         <Typography level="body-sm">
@@ -113,6 +123,7 @@ export default function InputFileUpload({onNewLabels}: Props) {
             type="file"
           />
         </Button>
+
         {file != null && (
           <FileUpload
             fileName={file.name}
@@ -124,6 +135,23 @@ export default function InputFileUpload({onNewLabels}: Props) {
             sx={{maxWidth: '35em'}}
           />
         )}
+
+        <Box>
+          <FormControl sx={{maxWidth: '25em'}}>
+            <FormLabel>Label Prefix</FormLabel>
+            <Input
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setLabelPrefix(e.target.value)
+              }
+              placeholder="Prefix"
+              value={labelPrefix}
+            />
+            <FormHelperText>
+              Add a prefix to help distinguish transactions from different
+              sources (ie multiple people's Amazon accounts)
+            </FormHelperText>
+          </FormControl>
+        </Box>
       </Stack>
     </Card>
   );
