@@ -278,6 +278,7 @@ export function getLabelsFromAmazonOrders(
             transactionData.length === 1
               ? labelId
               : `${labelId}__${i + 1}_of_${transactionData.length}`;
+
           return {
             // The convention for the standard transaction type is that outflows are negative
             amount: -1 * transaction.amount,
