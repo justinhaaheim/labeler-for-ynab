@@ -1,6 +1,7 @@
 import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLogChunk} from './Sync';
 import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
+import type * as ynab from 'ynab';
 
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
@@ -20,7 +21,6 @@ import Sheet from '@mui/joy/Sheet';
 import Stack from '@mui/joy/Stack';
 import Typography from '@mui/joy/Typography';
 import {useDeferredValue, useEffect, useMemo, useState} from 'react';
-import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
 // accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
@@ -28,6 +28,7 @@ import accountsCachedJson from './accountsCached.local.json';
 import amazonLabels2024Local from './amazonLabels2024.local';
 import budgetsCachedJson from './budgetsCached.local.json';
 import ColorSchemeToggle from './ColorSchemeToggle';
+import config from './config.json';
 import {convertYnabToStandardTransaction, getLabelsFromCsv} from './Converters';
 import {getDateTimeString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
@@ -49,9 +50,9 @@ const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 const UNDERSCORE_STRING = '__';
 const LABEL_PREFIX_SEPARATOR = ' ';
 
-const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
+// const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
 
-const ynabAPI = new ynab.API(YNAB_ACCESS_TOKEN);
+// const ynabAPI = new ynab.API(YNAB_ACCESS_TOKEN);
 
 type LabelSyncFilterConfig = {
   omitAlreadyCategorized: boolean;
@@ -59,10 +60,13 @@ type LabelSyncFilterConfig = {
   omitReconciled: boolean;
 };
 
-// @ts-ignore - remove later
-window.ynabAPI = ynabAPI;
+// // @ts-ignore - remove later
+// window.ynabAPI = ynabAPI;
 
 function App() {
+  const [ynabToken, setYnabToken] = useState<string | null>(null);
+  const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
+
   const [budgets, setBudgets] = useState<BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
 
@@ -180,7 +184,7 @@ function App() {
     undoUpdateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
 
   useEffect(() => {
-    if (budgets == null) {
+    if (ynabApi != null && budgets == null) {
       const budgetSortFn = (b1: BudgetSummary, b2: BudgetSummary) => {
         // Use the unary to convert date to number https://github.com/microsoft/TypeScript/issues/5710#issuecomment-157886246
         const d1 =
@@ -197,7 +201,7 @@ function App() {
       if (!USE_CACHED_RESPONSES) {
         (async function () {
           console.debug('📡 Fetching budgets data...');
-          const budgetsResponse = await ynabAPI.budgets.getBudgets();
+          const budgetsResponse = await ynabApi.budgets.getBudgets();
           setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
         })();
       } else {
@@ -207,10 +211,10 @@ function App() {
         }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
       }
     }
-  }, [budgets]);
+  }, [budgets, ynabApi]);
 
   useEffect(() => {
-    if (selectedBudgetID != null && accounts == null) {
+    if (ynabApi != null && selectedBudgetID != null && accounts == null) {
       if (
         USE_CACHED_RESPONSES &&
         selectedBudgetID === budgetIDForCachedAccounts
@@ -223,15 +227,16 @@ function App() {
         (async function () {
           console.debug('📡 Fetching accounts data...');
           const accountsResponse =
-            await ynabAPI.accounts.getAccounts(selectedBudgetID);
+            await ynabApi.accounts.getAccounts(selectedBudgetID);
           setAccounts(accountsResponse.data.accounts);
         })();
       }
     }
-  }, [accounts, selectedBudgetID]);
+  }, [accounts, selectedBudgetID, ynabApi]);
 
   useEffect(() => {
     if (
+      ynabApi != null &&
       selectedBudgetID != null &&
       selectedAccountID != null &&
       transactions == null
@@ -239,7 +244,7 @@ function App() {
       (async function () {
         console.debug('📡 Fetching transactions data...');
         const transactionsResponse =
-          await ynabAPI.transactions.getTransactionsByAccount(
+          await ynabApi.transactions.getTransactionsByAccount(
             selectedBudgetID,
             selectedAccountID,
           );
@@ -251,11 +256,19 @@ function App() {
         window.transactions = transactions;
       })();
     }
-  }, [selectedAccountID, selectedBudgetID, transactions]);
+  }, [selectedAccountID, selectedBudgetID, transactions, ynabApi]);
 
   /////////////////////////////////////////////////
   // Functions
   /////////////////////////////////////////////////
+
+  // This builds a URI to get an access token from YNAB
+  // https://api.ynab.com/#outh-applications
+  const authorizeWithYNAB = useCallback((e) => {
+    e.preventDefault();
+    const uri = `https://app.ynab.com/oauth/authorize?client_id=${config.clientId}&redirect_uri=${config.redirectUri}&response_type=token`;
+    window.location.replace(uri);
+  }, []);
 
   return (
     <>
@@ -352,6 +365,12 @@ function App() {
                 onLabelPrefixChange={setLabelPrefixNotDeferred}
                 onNewLabels={setLabelsWithoutPrefix}
               />
+            </Box>
+
+            <Box>
+              <Button onClick={authorizeWithYNAB} variant="solid">
+                Authorize with YNAB
+              </Button>
             </Box>
 
             <Box sx={{minWidth: 240}}>
@@ -501,7 +520,7 @@ function App() {
                   syncLabelsToYnab({
                     budgetID: selectedBudgetID,
                     finalizedMatches: finalizedMatchesFiltered,
-                    ynabAPI,
+                    ynabAPI: ynabApi,
                   })
                     .then((updateLogs) => {
                       setUpdateLogs(updateLogs);
@@ -537,7 +556,7 @@ function App() {
                   undoSyncLabelsToYnab({
                     budgetID: selectedBudgetID,
                     updateLogChunk: updateLogs,
-                    ynabAPI,
+                    ynabAPI: ynabApi,
                   })
                     .then((undoUpdateLogs) => {
                       setUndoUpdateLogs(undoUpdateLogs);
