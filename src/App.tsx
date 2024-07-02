@@ -1,6 +1,5 @@
 import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLogChunk} from './Sync';
-import type {Account, BudgetSummary, TransactionDetail} from 'ynab';
 import type * as ynab from 'ynab';
 
 import Box from '@mui/joy/Box';
@@ -20,7 +19,13 @@ import Select from '@mui/joy/Select';
 import Sheet from '@mui/joy/Sheet';
 import Stack from '@mui/joy/Stack';
 import Typography from '@mui/joy/Typography';
-import {useDeferredValue, useEffect, useMemo, useState} from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import packageJson from '../package.json';
 // accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
@@ -67,17 +72,17 @@ function App() {
   const [ynabToken, setYnabToken] = useState<string | null>(null);
   const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
 
-  const [budgets, setBudgets] = useState<BudgetSummary[] | null>(null);
+  const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
 
-  const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [accounts, setAccounts] = useState<ynab.Account[] | null>(null);
   const [selectedAccountID, setSelectedAccountID] = useState<string | null>(
     null,
   );
 
-  const [transactions, setTransactions] = useState<TransactionDetail[] | null>(
-    null,
-  );
+  const [transactions, setTransactions] = useState<
+    ynab.TransactionDetail[] | null
+  >(null);
 
   const [labelsWithoutPrefix, setLabelsWithoutPrefix] = useState<
     StandardTransactionType[] | null
@@ -185,7 +190,7 @@ function App() {
 
   useEffect(() => {
     if (ynabApi != null && budgets == null) {
-      const budgetSortFn = (b1: BudgetSummary, b2: BudgetSummary) => {
+      const budgetSortFn = (b1: ynab.BudgetSummary, b2: ynab.BudgetSummary) => {
         // Use the unary to convert date to number https://github.com/microsoft/TypeScript/issues/5710#issuecomment-157886246
         const d1 =
           b1.last_modified_on != null
@@ -221,7 +226,7 @@ function App() {
       ) {
         console.debug('Using cached accounts data');
         setTimeout(() => {
-          setAccounts(accountsCachedJson as Account[]);
+          setAccounts(accountsCachedJson as ynab.Account[]);
         }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
       } else {
         (async function () {
@@ -264,7 +269,9 @@ function App() {
 
   // This builds a URI to get an access token from YNAB
   // https://api.ynab.com/#outh-applications
-  const authorizeWithYNAB = useCallback((e) => {
+  const authorizeWithYNAB = useCallback<
+    React.MouseEventHandler<HTMLAnchorElement>
+  >((e) => {
     e.preventDefault();
     const uri = `https://app.ynab.com/oauth/authorize?client_id=${config.clientId}&redirect_uri=${config.redirectUri}&response_type=token`;
     window.location.replace(uri);
@@ -374,7 +381,7 @@ function App() {
             </Box>
 
             <Box sx={{minWidth: 240}}>
-              <FormControl>
+              <FormControl disabled={ynabApi == null || budgets == null}>
                 <FormLabel id="budget-selector-label-id">
                   Select your budget
                 </FormLabel>
@@ -398,26 +405,22 @@ function App() {
                   }}
                   placeholder="Select budget..."
                   value={selectedBudgetID}>
-                  {
-                    // TODO: better handling when empty array is returned
-                    budgets == null || budgets.length === 0 ? (
-                      <Option key="loading" value="">
-                        {'Loading budgets...'}
-                      </Option>
-                    ) : (
-                      budgets?.map((budget) => (
-                        <Option key={budget.id} value={budget.id}>
-                          {budget.name}
-                        </Option>
-                      ))
-                    )
-                  }
+                  {budgets?.map((budget) => (
+                    <Option key={budget.id} value={budget.id}>
+                      {budget.name}
+                    </Option>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
 
             <Box sx={{minWidth: 240}}>
-              <FormControl disabled={selectedBudgetID == null}>
+              <FormControl
+                disabled={
+                  ynabApi == null ||
+                  selectedBudgetID == null ||
+                  accounts == null
+                }>
                 <FormLabel id="account-selector-label-id">
                   Select your account
                 </FormLabel>
@@ -438,20 +441,11 @@ function App() {
                   }}
                   placeholder="Select account..."
                   value={selectedAccountID}>
-                  {
-                    // TODO: better handling when empty array is returned
-                    selectedBudgetID != null && accounts == null ? (
-                      <Option key="loading" value="">
-                        {'Loading accounts...'}
-                      </Option>
-                    ) : (
-                      accounts?.map((account) => (
-                        <Option key={account.id} value={account.id}>
-                          {account.name}
-                        </Option>
-                      ))
-                    )
-                  }
+                  {accounts?.map((account) => (
+                    <Option key={account.id} value={account.id}>
+                      {account.name}
+                    </Option>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
@@ -503,6 +497,7 @@ function App() {
             <Box>
               <Button
                 disabled={
+                  ynabApi == null ||
                   transactions == null ||
                   transactions.length === 0 ||
                   labels == null ||
@@ -510,6 +505,11 @@ function App() {
                   successfulMatchesCount === 0
                 }
                 onClick={() => {
+                  if (ynabApi == null) {
+                    // TODO: Show the user these errors instead of failing silently
+                    console.error('[Sync labels] YNAB API not available');
+                    return;
+                  }
                   if (selectedBudgetID == null) {
                     console.error('[Sync labels] No budget selected');
                     return;
@@ -542,6 +542,11 @@ function App() {
                   undoUpdateLogs != null
                 }
                 onClick={() => {
+                  if (ynabApi == null) {
+                    // TODO: Show the user these errors instead of failing silently
+                    console.error('[Undo Sync labels] YNAB API not available');
+                    return;
+                  }
                   if (selectedBudgetID == null) {
                     console.error('[Undo Sync labels] No budget selected');
                     return;
