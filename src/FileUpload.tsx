@@ -14,26 +14,27 @@ import * as React from 'react';
 
 import {type ParsedLabelFormatTypes, PRETTY_NAME_LOOKUP} from './LabelParser';
 
-export default function FileUpload(
-  props: CardProps & {
-    fileName: string;
-    fileSize: string;
-    icon?: React.ReactElement;
-    importType: ParsedLabelFormatTypes | null;
-    itemCount: number;
-    progress: number;
-  },
-) {
-  const {
-    icon,
-    fileName,
-    fileSize,
-    itemCount,
-    importType,
-    progress,
-    sx,
-    ...other
-  } = props;
+type Props = CardProps & {
+  fileName: string;
+  fileSize: string;
+  icon?: React.ReactElement;
+  importRowsCount: number | null;
+  importType: ParsedLabelFormatTypes | null;
+  labelCount: number | null;
+  progress: number;
+};
+
+export default function FileUpload({
+  icon,
+  fileName,
+  fileSize,
+  labelCount,
+  importType,
+  importRowsCount,
+  progress,
+  sx,
+  ...other
+}: Props) {
   return (
     <Card
       orientation="horizontal"
@@ -61,9 +62,20 @@ export default function FileUpload(
         <Typography fontSize="sm">{fileName}</Typography>
         <Typography level="body-xs">{fileSize}</Typography>
         <Typography level="body-xs">{`${
-          importType == null ? 'No ' : PRETTY_NAME_LOOKUP[importType]
+          importType == null
+            ? 'Unsupported file '
+            : PRETTY_NAME_LOOKUP[importType]
         } format detected`}</Typography>
-        <Typography level="body-xs">{itemCount} labels parsed</Typography>
+        <Typography level="body-xs">
+          {importRowsCount ?? 0} csv rows parsed
+        </Typography>
+        <Typography level="body-xs">
+          {labelCount ?? 0} labels generated
+        </Typography>
+        <Typography fontStyle="italic" level="body-xs" sx={{mt: 1}}>
+          Note: multiple labels are created when a row contains multiple
+          transactions. When a row is missing data a label is not created.
+        </Typography>
         <Box sx={{alignItems: 'center', display: 'flex', gap: 1}}>
           <LinearProgress
             color="neutral"

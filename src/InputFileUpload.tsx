@@ -1,5 +1,4 @@
 import type {ParsedLabelsTyped} from './LabelParser';
-import type {StandardTransactionType} from './LabelTypes';
 
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 import {styled} from '@mui/joy';
@@ -17,15 +16,8 @@ import Typography from '@mui/joy/Typography';
 import _ from 'lodash';
 import {useEffect, useMemo, useState} from 'react';
 
-import {convertParsedLabelsToStandardTransaction} from './Converters';
 import FileUpload from './FileUpload';
 import {getParsedLabelsFromCsv} from './LabelParser';
-
-type Props = {
-  onLabelPrefixChange: (prefix: string) => void;
-  // onFileText: (text: string) => void;
-  onNewLabels: (labels: StandardTransactionType[]) => void;
-};
 
 const LABEL_PREFIX_CHANGE_DEBOUNCE_WAIT_MS = 500;
 
@@ -41,15 +33,20 @@ const VisuallyHiddenInput = styled('input')`
   width: 1px;
 `;
 
+type Props = {
+  labelCount: number | null;
+  onLabelPrefixChange: (prefix: string) => void;
+  onNewLabelData: (labels: ParsedLabelsTyped) => void;
+};
+
 export default function InputFileUpload({
-  onNewLabels,
+  onNewLabelData,
   onLabelPrefixChange,
+  labelCount,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
-  const [parsedLabels, setParsedLabels] = useState<ParsedLabelsTyped | null>(
-    null,
-  );
-  const [labels, setLabels] = useState<StandardTransactionType[] | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);
   const [labelPrefix, setLabelPrefix] = useState<string>('');
 
   const onLabelPrefixChangeDebounced = useMemo(() => {
@@ -80,6 +77,11 @@ export default function InputFileUpload({
         <Button
           color="neutral"
           component="label"
+          onClick={() => {
+            setFile(null);
+            setLabelData(null);
+            setUploadProgress(0);
+          }}
           role={undefined}
           startDecorator={
             <SvgIcon>
@@ -115,6 +117,7 @@ export default function InputFileUpload({
               }
 
               setFile(f);
+              setUploadProgress(80);
 
               const reader = new FileReader();
 
@@ -127,11 +130,9 @@ export default function InputFileUpload({
                   console.debug('File text', fileText);
 
                   const newParsedLabels = getParsedLabelsFromCsv(fileText);
-                  setParsedLabels(newParsedLabels);
-                  const newLabels =
-                    convertParsedLabelsToStandardTransaction(newParsedLabels);
-                  setLabels(newLabels);
-                  onNewLabels(newLabels);
+                  setLabelData(newParsedLabels);
+                  onNewLabelData(newParsedLabels);
+                  setUploadProgress(100);
                 },
                 false,
               );
@@ -150,9 +151,10 @@ export default function InputFileUpload({
             fileName={file.name}
             fileSize={`${Math.round(file.size / 1000)}kb`}
             icon={<InsertDriveFileRoundedIcon />}
-            importType={parsedLabels?._type ?? null}
-            itemCount={labels?.length ?? 0}
-            progress={100}
+            importRowsCount={labelData?.labels.length ?? null}
+            importType={labelData?._type ?? null}
+            labelCount={labelCount}
+            progress={uploadProgress}
             sx={{maxWidth: '35em'}}
           />
         )}

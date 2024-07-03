@@ -1,3 +1,4 @@
+import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLogChunk} from './Sync';
 
@@ -34,7 +35,11 @@ import amazonLabels2024Local from './amazonLabels2024.local';
 import budgetsCachedJson from './budgetsCached.local.json';
 import ColorSchemeToggle from './ColorSchemeToggle';
 import config from './config.json';
-import {convertYnabToStandardTransaction, getLabelsFromCsv} from './Converters';
+import {
+  convertParsedLabelsToStandardTransaction,
+  convertYnabToStandardTransaction,
+  getLabelsFromCsv,
+} from './Converters';
 import {getDateTimeString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
@@ -87,11 +92,17 @@ function App() {
     ynab.TransactionDetail[] | null
   >(null);
 
-  const [labelsWithoutPrefix, setLabelsWithoutPrefix] = useState<
-    StandardTransactionType[] | null
-  >(() =>
-    USE_CACHED_RESPONSES ? getLabelsFromCsv(amazonLabels2024Local) : null,
-  );
+  const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);
+  const labelsWithoutPrefix = useMemo<StandardTransactionType[] | null>(() => {
+    if (USE_CACHED_RESPONSES) {
+      return getLabelsFromCsv(amazonLabels2024Local);
+    }
+    if (labelData != null) {
+      // Take the raw data that was parsed and determine the best label from it
+      return convertParsedLabelsToStandardTransaction(labelData);
+    }
+    return null;
+  }, [labelData]);
 
   const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
     useState<LabelSyncFilterConfig>({
@@ -113,7 +124,7 @@ function App() {
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
 
-  const labels = useMemo(
+  const labels: StandardTransactionType[] | null = useMemo(
     () =>
       labelsWithoutPrefix?.map((label) => ({
         ...label,
@@ -121,7 +132,7 @@ function App() {
           labelPrefix.trim().length > 0
             ? labelPrefix + LABEL_PREFIX_SEPARATOR + label.memo
             : label.memo,
-      })),
+      })) ?? null,
     [labelPrefix, labelsWithoutPrefix],
   );
 
@@ -413,8 +424,9 @@ function App() {
 
             <Box>
               <InputFileUpload
+                labelCount={labels?.length ?? null}
                 onLabelPrefixChange={setLabelPrefixNotDeferred}
-                onNewLabels={setLabelsWithoutPrefix}
+                onNewLabelData={setLabelData}
               />
             </Box>
 
