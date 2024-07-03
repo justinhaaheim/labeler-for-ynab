@@ -56,6 +56,7 @@ const UNDERSCORE_STRING = '__';
 const LABEL_PREFIX_SEPARATOR = ' ';
 
 const YNAB_TOKEN_LOCAL_STORAGE_KEY = 'ynab_access_token';
+const YNAB_ACCESS_TOKEN_URL_HASH_KEY = 'access_token';
 
 // const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
 
@@ -198,34 +199,32 @@ function App() {
     // Check for the YNAB token provided when we're redirected back from the YNAB OAuth page
     let token = null;
 
-    // TODO: this seems kinda janky. Gotta be a more robust, less manual way to do this. Let's try URLSearchParams for parsing
-    const search = window.location.hash
-      .substring(1)
-      .replace(/&/g, '","')
-      .replace(/=/g, '":"');
+    // NOTE: window.location.hash includes the "#"
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    console.debug('parsing url hash:', {
+      hashOriginalString: window.location.hash,
+      hashParams: Array.from(hashParams.entries()),
+    });
 
-    console.debug('getYNABToken:', {hash: window.location.hash, search});
-    if (search && search !== '') {
-      // Try to get access_token from the hash returned by OAuth
-      const params = JSON.parse('{"' + search + '"}', function (key, value) {
-        return key === '' ? value : decodeURIComponent(value);
-      });
-      console.debug('params:', params);
-      token = params['access_token'] ?? null;
+    // NOTE: .get returns null if there's no item
+    const hashToken = hashParams.get(YNAB_ACCESS_TOKEN_URL_HASH_KEY);
+
+    if (hashToken != null && hashToken.length > 0) {
+      token = hashToken;
       console.debug('Token from URL:', token);
-      if (token != null) {
-        // TODO: store when it expires and use that to warn the client when calls to the API will start failing; prompt to reauthorize
-        sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
-      }
+
+      // TODO: store when it expires and use that to warn the client when calls to the API will start failing; prompt to reauthorize
+      sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
+
       // Remove the token from the url
-      window.location.hash = '';
+      // window.location.hash = '';
     } else {
       // Otherwise try sessionStorage
       token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
       console.debug('Token from session storage:', token);
     }
 
-    if (token != null) {
+    if (token != null && token.length > 0) {
       setYnabToken(token);
       setYnabApi(new ynab.API(token));
     }
@@ -418,7 +417,10 @@ function App() {
             </Box>
 
             <Box>
-              <Button onClick={authorizeWithYNAB} variant="solid">
+              <Button
+                disabled={ynabApi != null}
+                onClick={authorizeWithYNAB}
+                variant="solid">
                 Authorize with YNAB
               </Button>
             </Box>
