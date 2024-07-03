@@ -23,8 +23,12 @@ type UndoConfig = {
 
 export type UpdateLogEntry = {
   id: string;
-  label: string | null;
-  method: 'append' | 'truncate';
+  label: string;
+
+  // labelSource is the original label before any separators are added
+  labelSource: string;
+
+  method: 'append-label' | 'remove-label';
   newMemo: string;
   previousMemo: string | null | undefined;
   updateSucceeded?: boolean;
@@ -36,7 +40,7 @@ export type UpdateLogChunk = {
   type: 'sync' | 'undo-sync';
 };
 
-export function generateStandardLabel(label: StandardTransactionType): string {
+function getLabelWithSeparator(label: StandardTransactionType): string {
   return SEPARATOR_BEFORE_LABEL + SPACER_STRING + label.memo;
 }
 
@@ -56,15 +60,29 @@ export async function syncLabelsToYnab({
   ).map((match) => {
     const ynabTransactionToUpdate = match.transactionMatch;
 
+    // If the previous memo is just whitespace then trim it. If not, leave everything alone and simply append.
+    const previousMemoTrimmed =
+      (ynabTransactionToUpdate.memo ?? '').trim().length === 0
+        ? ''
+        : ynabTransactionToUpdate.memo ?? '';
+
+    // If there's already a space at the end of the memo, don't add an additional space
+    // Or if the previous memo is an empty string, don't add any space before our label
+    const previousMemoWithSpacer =
+      previousMemoTrimmed.length === 0 ||
+      previousMemoTrimmed.slice(-1) === SPACER_STRING
+        ? previousMemoTrimmed
+        : previousMemoTrimmed + SPACER_STRING;
+
     const charactersRemainingForLabel =
-      MAXIMUM_YNAB_MEMO_LENGTH -
-      ((ynabTransactionToUpdate.memo?.length ?? 0) + SPACER_STRING.length);
+      MAXIMUM_YNAB_MEMO_LENGTH - previousMemoWithSpacer.length;
 
     // This should include any space or separator between the original memo and the label
-    const labelToAppend =
-      SPACER_STRING +
-      generateStandardLabel(match.label).slice(0, charactersRemainingForLabel);
-    const newMemo = `${ynabTransactionToUpdate.memo}${labelToAppend}`;
+    const labelToAppend = getLabelWithSeparator(match.label).slice(
+      0,
+      charactersRemainingForLabel,
+    );
+    const newMemo = previousMemoWithSpacer + labelToAppend;
 
     console.debug({
       lostCharacters: Math.max(
@@ -77,9 +95,11 @@ export async function syncLabelsToYnab({
 
     updateLogs.push({
       id: ynabTransactionToUpdate.id,
-      label: match.label.memo,
-      method: 'append',
+      label: labelToAppend,
+      labelSource: match.label.memo,
+      method: 'append-label',
       newMemo,
+      // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
       previousMemo: ynabTransactionToUpdate.memo,
     });
 
@@ -129,7 +149,8 @@ export async function undoSyncLabelsToYnab({
       undoUpdateLogs.push({
         id: log.id,
         label: log.label,
-        method: 'truncate',
+        labelSource: log.labelSource,
+        method: 'remove-label',
         newMemo: log.previousMemo ?? '',
         previousMemo: log.newMemo,
       });
