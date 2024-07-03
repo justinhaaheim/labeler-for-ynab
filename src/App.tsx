@@ -55,6 +55,8 @@ const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 const UNDERSCORE_STRING = '__';
 const LABEL_PREFIX_SEPARATOR = ' ';
 
+const YNAB_TOKEN_LOCAL_STORAGE_KEY = 'ynab_access_token';
+
 // const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
 
 // const ynabAPI = new ynab.API(YNAB_ACCESS_TOKEN);
@@ -187,6 +189,37 @@ function App() {
 
   const successfulUndosCount: number | null =
     undoUpdateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
+
+  /////////////////////////////////////////////////
+  // Effects
+  /////////////////////////////////////////////////
+
+  useEffect(() => {
+    // Check for the YNAB token provided when we're redirected back from the YNAB OAuth page
+    let token = null;
+
+    // TODO: this seems kinda janky. Gotta be a more robust, less manual way to do this
+    const search = window.location.hash
+      .substring(1)
+      .replace(/&/g, '","')
+      .replace(/=/g, '":"');
+    if (search && search !== '') {
+      // Try to get access_token from the hash returned by OAuth
+      const params = JSON.parse('{"' + search + '"}', function (key, value) {
+        return key === '' ? value : decodeURIComponent(value);
+      });
+      token = params.access_token;
+      sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
+      window.location.hash = '';
+    } else {
+      // Otherwise try sessionStorage
+      token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
+    }
+
+    if (token != null) {
+      setYnabToken(token);
+    }
+  }, []);
 
   useEffect(() => {
     if (ynabApi != null && budgets == null) {
