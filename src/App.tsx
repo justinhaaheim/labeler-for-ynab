@@ -1,6 +1,5 @@
 import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLogChunk} from './Sync';
-import type * as ynab from 'ynab';
 
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
@@ -26,6 +25,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
 // accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
@@ -71,7 +71,7 @@ type LabelSyncFilterConfig = {
 // window.ynabAPI = ynabAPI;
 
 function App() {
-  const [ynabToken, setYnabToken] = useState<string | null>(null);
+  const [_ynabToken, setYnabToken] = useState<string | null>(null);
   const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
 
   const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
@@ -198,26 +198,36 @@ function App() {
     // Check for the YNAB token provided when we're redirected back from the YNAB OAuth page
     let token = null;
 
-    // TODO: this seems kinda janky. Gotta be a more robust, less manual way to do this
+    // TODO: this seems kinda janky. Gotta be a more robust, less manual way to do this. Let's try URLSearchParams for parsing
     const search = window.location.hash
       .substring(1)
       .replace(/&/g, '","')
       .replace(/=/g, '":"');
+
+    console.debug('getYNABToken:', {hash: window.location.hash, search});
     if (search && search !== '') {
       // Try to get access_token from the hash returned by OAuth
       const params = JSON.parse('{"' + search + '"}', function (key, value) {
         return key === '' ? value : decodeURIComponent(value);
       });
-      token = params.access_token;
-      sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
+      console.debug('params:', params);
+      token = params['access_token'] ?? null;
+      console.debug('Token from URL:', token);
+      if (token != null) {
+        // TODO: store when it expires and use that to warn the client when calls to the API will start failing; prompt to reauthorize
+        sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
+      }
+      // Remove the token from the url
       window.location.hash = '';
     } else {
       // Otherwise try sessionStorage
       token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
+      console.debug('Token from session storage:', token);
     }
 
     if (token != null) {
       setYnabToken(token);
+      setYnabApi(new ynab.API(token));
     }
   }, []);
 
@@ -634,76 +644,79 @@ function App() {
               />
             </Box>
 
-            {showAllLabelsAndTransactions && (
-              <>
-                <Grid container spacing={2}>
-                  <Grid xs={12}>
-                    <Typography level="h3" sx={{mb: 2}}>
-                      Labels With No Match
-                    </Typography>
+            {
+              // TODO: paginate and/or virtualize these lists to limit the cost of rerendering
+              showAllLabelsAndTransactions && (
+                <>
+                  <Grid container spacing={2}>
+                    <Grid xs={12}>
+                      <Typography level="h3" sx={{mb: 2}}>
+                        Labels With No Match
+                      </Typography>
 
-                    <TransactionDataGrid
-                      transactions={finalizedMatches
-                        .filter((m) => m.transactionMatch == null)
-                        .map((m) => m.label)}
-                    />
-                  </Grid>
-                </Grid>
-
-                <Grid container spacing={2}>
-                  <Grid xs={6}>
-                    <Typography level="h3" sx={{mb: 2}}>
-                      Transactions
-                    </Typography>
-
-                    <Typography>{`${
-                      transactions?.length ?? 0
-                    } transactions fetched`}</Typography>
-
-                    {transactions != null && (
                       <TransactionDataGrid
-                        size="sm"
-                        transactions={convertYnabToStandardTransaction(
-                          transactions,
-                        )}
+                        transactions={finalizedMatches
+                          .filter((m) => m.transactionMatch == null)
+                          .map((m) => m.label)}
                       />
-                    )}
+                    </Grid>
                   </Grid>
 
-                  <Grid xs={6}>
-                    <Typography level="h3" sx={{mb: 2}}>
-                      Labels
-                    </Typography>
+                  <Grid container spacing={2}>
+                    <Grid xs={6}>
+                      <Typography level="h3" sx={{mb: 2}}>
+                        Transactions
+                      </Typography>
 
-                    <Typography>{`${
-                      labels?.length ?? 0
-                    } labels loaded`}</Typography>
+                      <Typography>{`${
+                        transactions?.length ?? 0
+                      } transactions fetched`}</Typography>
 
-                    {labels != null && (
-                      <TransactionDataGrid size="sm" transactions={labels} />
-                    )}
+                      {transactions != null && (
+                        <TransactionDataGrid
+                          size="sm"
+                          transactions={convertYnabToStandardTransaction(
+                            transactions,
+                          )}
+                        />
+                      )}
+                    </Grid>
+
+                    <Grid xs={6}>
+                      <Typography level="h3" sx={{mb: 2}}>
+                        Labels
+                      </Typography>
+
+                      <Typography>{`${
+                        labels?.length ?? 0
+                      } labels loaded`}</Typography>
+
+                      {labels != null && (
+                        <TransactionDataGrid size="sm" transactions={labels} />
+                      )}
+                    </Grid>
                   </Grid>
-                </Grid>
-                {matchCandidates != null &&
-                  (matchCandidates.length === 0 ? (
-                    <Typography>No matches found</Typography>
-                  ) : (
-                    <MatchCandidateTable
-                      label="Match Candidates"
-                      matchCandidates={matchCandidates}
-                    />
-                  ))}
-                {matchCandidates != null &&
-                  (matchCandidates.length === 0 ? (
-                    <Typography>No matches found</Typography>
-                  ) : (
-                    <LabelTransactionMatchTable
-                      label="Finalized Matches"
-                      matches={finalizedMatches}
-                    />
-                  ))}
-              </>
-            )}
+                  {matchCandidates != null &&
+                    (matchCandidates.length === 0 ? (
+                      <Typography>No matches found</Typography>
+                    ) : (
+                      <MatchCandidateTable
+                        label="Match Candidates"
+                        matchCandidates={matchCandidates}
+                      />
+                    ))}
+                  {matchCandidates != null &&
+                    (matchCandidates.length === 0 ? (
+                      <Typography>No matches found</Typography>
+                    ) : (
+                      <LabelTransactionMatchTable
+                        label="Finalized Matches"
+                        matches={finalizedMatches}
+                      />
+                    ))}
+                </>
+              )
+            }
           </Stack>
         </Sheet>
       </Box>
