@@ -117,6 +117,8 @@ export default function InputFileUpload({
               setFile(f);
 
               const reader = new FileReader();
+
+              // TODO: set some kind of timeout timer in case load doesn't get called in time or never gets called
               reader.addEventListener(
                 'load',
                 () => {
@@ -135,6 +137,9 @@ export default function InputFileUpload({
               );
 
               reader.readAsText(f);
+
+              // We want the user to be able to reupload the same file. If we don't do this then onChange is never called if they upload the same file.
+              e.target.value = '';
             }}
             type="file"
           />

@@ -12,7 +12,6 @@ import {
   type YnabCsvTransactionType,
 } from './LabelTypes';
 import parseLocaleNumber from './parseLocaleNumber';
-import {SPLIT_TRANSACTION_PREFIX} from './Sync';
 
 type DateCandidateWithPosition = {
   date: Date;
@@ -280,7 +279,7 @@ export function getLabelsFromAmazonOrders(
           const memo =
             transactionData.length === 1
               ? order.items
-              : SPLIT_TRANSACTION_PREFIX + order.items;
+              : `(charge ${i + 1}/${transactionData.length}) ` + order.items;
 
           return {
             // The convention for the standard transaction type is that outflows are negative

@@ -217,7 +217,7 @@ function App() {
       sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
 
       // Remove the token from the url
-      // window.location.hash = '';
+      window.location.hash = '';
     } else {
       // Otherwise try sessionStorage
       token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
@@ -249,6 +249,7 @@ function App() {
         (async function () {
           console.debug('📡 Fetching budgets data...');
           const budgetsResponse = await ynabApi.budgets.getBudgets();
+          console.debug('📡 Budget data received', budgetsResponse);
           setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
         })();
       } else {
@@ -275,6 +276,7 @@ function App() {
           console.debug('📡 Fetching accounts data...');
           const accountsResponse =
             await ynabApi.accounts.getAccounts(selectedBudgetID);
+          console.debug('📡 Accounts data received', accountsResponse);
           setAccounts(accountsResponse.data.accounts);
         })();
       }

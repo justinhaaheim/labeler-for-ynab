@@ -8,7 +8,6 @@ import type {API, SaveTransactionWithId} from 'ynab';
 const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 const SPACER_STRING = ' ';
 export const SEPARATOR_BEFORE_LABEL = '##';
-export const SPLIT_TRANSACTION_PREFIX = '(split)' + SPACER_STRING;
 
 type SyncConfig = {
   budgetID: string;
