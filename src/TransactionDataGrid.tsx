@@ -2,6 +2,7 @@ import type {StandardTransactionType} from './LabelTypes';
 
 import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
+import {useState} from 'react';
 
 type Props = {
   size?: 'lg' | 'md' | 'sm';
@@ -12,15 +13,34 @@ type Props = {
 type GridColumnDef = {
   field: keyof StandardTransactionType;
   headerName: string;
-  width?: string;
+  sx?: Record<string, number | string>;
+  truncatable?: boolean;
+  // width?: string;
 };
+
+const ROW_NO_WRAP_STYLE = {
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+const ROW_WRAP_STYLE = {whiteSpace: 'pre-wrap'};
 
 const columns: GridColumnDef[] = [
   {field: 'id', headerName: 'ID'},
-  {field: 'date', headerName: 'Date'},
+  {
+    field: 'date',
+    headerName: 'Date',
+    sx: {width: '8em'},
+    truncatable: false,
+  },
   {field: 'payee', headerName: 'Payee'},
-  {field: 'memo', headerName: 'Memo', width: '50%'},
-  {field: 'amount', headerName: 'Amount'},
+  {field: 'memo', headerName: 'Memo', sx: {width: '40%'}},
+  {
+    field: 'amount',
+    headerName: 'Amount',
+    sx: {width: '5em'},
+    truncatable: false,
+  },
 ];
 
 export default function TransactionDataGrid({
@@ -31,6 +51,7 @@ export default function TransactionDataGrid({
     transactions.length > 0
       ? transactions
       : [{amount: '-', date: '-', id: '-', memo: '-', payee: '-'}];
+  const [rowIsWrapped, setRowIsWrapped] = useState<Record<string, boolean>>({});
 
   return (
     <Sheet>
@@ -43,16 +64,16 @@ export default function TransactionDataGrid({
           '--TableRow-hoverBackground': 'var(--joy-palette-background-level1)',
           overflowWrap: 'break-word',
 
+          textAlign: 'start',
+
           // Ensure that multiple spaces in a row are actually rendered in HTML
           whiteSpace: 'pre-wrap',
         }}>
         <thead>
           <tr>
             {columns.map((c) => {
-              const sx = c.width == null ? {} : {width: c.width};
-
               return (
-                <th {...sx} key={c.headerName}>
+                <th key={c.headerName} style={c.sx}>
                   {c.headerName}
                 </th>
               );
@@ -61,13 +82,36 @@ export default function TransactionDataGrid({
         </thead>
 
         <tbody>
-          {data.map((t) => (
-            <tr key={t.id}>
-              {columns.map((col) => (
-                <td key={col.field}>{t[col.field]}</td>
-              ))}
-            </tr>
-          ))}
+          {data.map((t) => {
+            const rowShouldWrap = rowIsWrapped[t.id] ?? false;
+
+            return (
+              <tr
+                key={t.id}
+                onClick={() => {
+                  if (rowIsWrapped[t.id] == null) {
+                    // Row is currently in default of true, let's change to false
+
+                    setRowIsWrapped((prev) => ({...prev, [t.id]: true}));
+                    return;
+                  }
+
+                  setRowIsWrapped((prev) => ({...prev, [t.id]: !prev[t.id]}));
+                }}>
+                {columns.map((col) => (
+                  <td
+                    key={col.field}
+                    style={
+                      rowShouldWrap || !(col.truncatable ?? true)
+                        ? ROW_WRAP_STYLE
+                        : ROW_NO_WRAP_STYLE
+                    }>
+                    {t[col.field]}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </Table>
     </Sheet>
