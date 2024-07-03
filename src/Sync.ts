@@ -7,6 +7,7 @@ import type {API, SaveTransactionWithId} from 'ynab';
 
 const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 const SPACER_STRING = ' ';
+export const SEPARATOR_BEFORE_LABEL = '##';
 export const SPLIT_TRANSACTION_PREFIX = '(split)' + SPACER_STRING;
 
 type SyncConfig = {
@@ -37,7 +38,7 @@ export type UpdateLogChunk = {
 };
 
 export function generateStandardLabel(label: StandardTransactionType): string {
-  return `| ${label.memo}`;
+  return SEPARATOR_BEFORE_LABEL + SPACER_STRING + label.memo;
 }
 
 export async function syncLabelsToYnab({

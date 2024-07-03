@@ -254,9 +254,7 @@ export function getLabelsFromAmazonOrders(
         payee: AMAZON_PAYEE_NAME,
       };
 
-      const transactionDataFiltered = transactionData;
-
-      if (transactionDataFiltered.length === 0) {
+      if (transactionData.length === 0) {
         console.warn(
           '[getLabelsFromAmazonOrders] no viable transactions from payment data. Bailing on using transaction data.',
           {order, transactionData},
@@ -279,12 +277,17 @@ export function getLabelsFromAmazonOrders(
               ? labelId
               : `${labelId}__${i + 1}_of_${transactionData.length}`;
 
+          const memo =
+            transactionData.length === 1
+              ? order.items
+              : SPLIT_TRANSACTION_PREFIX + order.items;
+
           return {
             // The convention for the standard transaction type is that outflows are negative
             amount: -1 * transaction.amount,
             date: getDateString(transaction.date),
             id: transactionId,
-            memo: SPLIT_TRANSACTION_PREFIX + order.items,
+            memo: memo,
             payee: AMAZON_PAYEE_NAME,
           };
         },
