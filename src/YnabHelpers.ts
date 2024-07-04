@@ -28,7 +28,8 @@ export function getYNABErrorHandler(
 ): (error: unknown) => void {
   return (error: unknown) => {
     if (typeof error === 'object' && error != null) {
-      if (ynab.instanceOfErrorDetail(error)) {
+      // @ts-ignore TODO: Come back to this type issue re: errors
+      if (ynab.instanceOfErrorDetail(error?.error)) {
         switch ((error as YNABErrorType).error?.id) {
           case '401': {
             console.warn(

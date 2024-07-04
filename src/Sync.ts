@@ -3,7 +3,7 @@ import type {
   LabelTransactionMatch,
   LabelTransactionMatchNonNullable,
 } from './Matching';
-import type {API, SaveTransactionWithId} from 'ynab';
+import type {API, SaveTransactionWithIdOrImportId} from 'ynab';
 
 const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 const SPACER_STRING = ' ';
@@ -30,7 +30,7 @@ export type UpdateLogEntry = {
 
   method: 'append-label' | 'remove-label';
   newMemo: string;
-  previousMemo: string | null | undefined;
+  previousMemo: string | undefined;
   updateSucceeded?: boolean;
 };
 
@@ -53,7 +53,7 @@ export async function syncLabelsToYnab({
 
   let updateLogs: UpdateLogEntry[] = [];
 
-  const saveTransactionsToExecute: SaveTransactionWithId[] = (
+  const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] = (
     finalizedMatches.filter(
       (m) => m.transactionMatch != null,
     ) as LabelTransactionMatchNonNullable[]
@@ -144,7 +144,7 @@ export async function undoSyncLabelsToYnab({
 
   let undoUpdateLogs: UpdateLogEntry[] = [];
 
-  const saveTransactionsToExecute: SaveTransactionWithId[] =
+  const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] =
     updateLogChunk.logs.map((log) => {
       undoUpdateLogs.push({
         id: log.id,
