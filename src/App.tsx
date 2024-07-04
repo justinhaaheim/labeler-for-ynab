@@ -6,8 +6,11 @@ import type {YNABErrorType} from './YnabHelpers';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Card from '@mui/joy/Card';
+import CardActions from '@mui/joy/CardActions';
 import CardContent from '@mui/joy/CardContent';
+import CardOverflow from '@mui/joy/CardOverflow';
 import Checkbox from '@mui/joy/Checkbox';
+import Divider from '@mui/joy/Divider';
 import FormControl from '@mui/joy/FormControl';
 import FormLabel from '@mui/joy/FormLabel';
 import Grid from '@mui/joy/Grid';
@@ -362,6 +365,8 @@ function App() {
     //   });
   }, []);
 
+  const cardStyle = useMemo(() => ({width: '100%'}), []);
+
   return (
     <>
       <Box
@@ -369,7 +374,8 @@ function App() {
           alignItems: 'center',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
+          // Needed?
+          // justifyContent: 'center',
           minHeight: '100dvh',
           position: 'relative',
         }}>
@@ -389,337 +395,432 @@ function App() {
 
             <Box>
               <Typography level="h1" sx={{marginBottom: 2}}>
-                YNAB Labeler
+                Transaction Labeler for YNAB
               </Typography>
             </Box>
 
-            <Card
-              color="primary"
-              invertedColors={true}
-              size="lg"
-              sx={{width: 'fit-content'}}
-              variant="solid">
-              <CardContent>
-                <Typography level="title-lg" sx={{marginBottom: 2}}>
-                  Status
-                </Typography>
+            <Grid
+              container
+              spacing={4}
+              sx={{
+                /**
+                 * This means that the grid item below this will actually render on top of this,
+                 * which is what we want. Status should be on the right side on wide screens, and at the
+                 * top on small screens
+                 */
+                flexWrap: 'wrap-reverse',
+              }}>
+              <Grid sm={6} xs={12}>
+                <Stack alignItems="start" spacing={{sm: 3, xs: 7}}>
+                  <Card sx={cardStyle}>
+                    <Box sx={{mb: 1}}>
+                      <Typography level="title-md">
+                        Step 1: Connect to YNAB
+                      </Typography>
+                      <Typography level="body-sm">
+                        Authorize access to your YNAB account, or reconnect if
+                        you've already provided the initial authorization.
+                      </Typography>
+                    </Box>
+                    <Divider />
+                    <Stack alignItems="start" spacing={2} sx={{my: 1}}>
+                      <Box>
+                        <Button
+                          disabled={ynabApi != null}
+                          onClick={authorizeWithYNAB}
+                          variant="solid">
+                          Authorize with YNAB
+                        </Button>
+                      </Box>
 
-                <Box sx={{mb: 2, textAlign: 'left'}}>
-                  <Typography>{`${
-                    labels?.length ?? UNDERSCORE_STRING
-                  } labels loaded`}</Typography>
+                      <Box>
+                        <Button
+                          // disabled={ynabApi != null}
+                          onClick={() => {
+                            if (ynabApi == null) {
+                              console.warn('ynabApi is null.');
+                              return;
+                            }
+                            ynabApi.user
+                              .getUser()
+                              .then((response) => {
+                                console.debug('[getUser] response', response);
+                              })
+                              .catch((error) => {
+                                console.debug('[getUser] error', error);
+                              });
+                          }}
+                          variant="solid">
+                          Test Connection
+                        </Button>
+                      </Box>
+                    </Stack>
+                  </Card>
 
-                  <Typography>{`${
-                    transactions?.length ?? UNDERSCORE_STRING
-                  } YNAB transactions fetched`}</Typography>
+                  <Card sx={cardStyle}>
+                    <Box sx={{mb: 1}}>
+                      <Typography level="title-md">
+                        Step 2: Select Budget & Account
+                      </Typography>
+                      <Typography level="body-sm">
+                        Choose the budget and account to which you want to apply
+                        the labels.
+                      </Typography>
+                    </Box>
+                    <Divider />
+                    <Stack alignItems="start" spacing={2} sx={{my: 1}}>
+                      <Box sx={{minWidth: 240}}>
+                        <FormControl
+                          disabled={ynabApi == null || budgets == null}>
+                          <FormLabel id="budget-selector-label-id">
+                            Select your budget
+                          </FormLabel>
+                          <Select
+                            id="budget-selector"
+                            onChange={(
+                              _event: React.SyntheticEvent | null,
+                              newValue: string | null,
+                            ) => {
+                              // console.log(event);
+                              const newBudgetID = newValue;
+                              if (selectedBudgetID !== newBudgetID) {
+                                console.debug(
+                                  'New budgetID selected. Clearing accounts and transactions',
+                                );
+                                setSelectedAccountID(null);
+                                setAccounts(null);
+                                setTransactions(null);
+                                setSelectedBudgetID(newBudgetID);
+                              }
+                            }}
+                            placeholder="Select budget..."
+                            value={selectedBudgetID}>
+                            {budgets?.map((budget) => (
+                              <Option key={budget.id} value={budget.id}>
+                                {budget.name}
+                              </Option>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
 
-                  <Typography>{`${
-                    matchCandidates == null
-                      ? UNDERSCORE_STRING
-                      : successfulMatchesCount
-                  }/${
-                    labels?.length ?? UNDERSCORE_STRING
-                  } labels matched to a YNAB transaction`}</Typography>
+                      <Box sx={{minWidth: 240}}>
+                        <FormControl
+                          disabled={
+                            ynabApi == null ||
+                            selectedBudgetID == null ||
+                            accounts == null
+                          }>
+                          <FormLabel id="account-selector-label-id">
+                            Select your account
+                          </FormLabel>
+                          <Select
+                            onChange={(
+                              event: React.SyntheticEvent | null,
+                              newValue: string | null,
+                            ) => {
+                              console.log(event);
+                              const newAccountID = newValue;
+                              if (selectedAccountID !== newAccountID) {
+                                console.debug(
+                                  'New accountID selected. Clearing transactions',
+                                );
+                                setTransactions(null);
+                                setSelectedAccountID(newAccountID);
+                              }
+                            }}
+                            placeholder="Select account..."
+                            value={selectedAccountID}>
+                            {accounts?.map((account) => (
+                              <Option key={account.id} value={account.id}>
+                                {account.name}
+                              </Option>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    </Stack>
+                  </Card>
 
-                  <Typography>{`${
-                    matchCandidates == null || labels == null
-                      ? UNDERSCORE_STRING
-                      : labels.length - successfulMatchesCount
-                  } labels had no match`}</Typography>
-                </Box>
-
-                <Box sx={{mb: 2, textAlign: 'left'}}>
-                  <Typography>{`${
-                    matchCandidates == null
-                      ? UNDERSCORE_STRING
-                      : successfulMatchesThatPassFiltersCount
-                  }/${
-                    matchCandidates == null
-                      ? UNDERSCORE_STRING
-                      : successfulMatchesCount
-                  } labels will be synced based on filter criteria`}</Typography>
-                </Box>
-
-                <Box sx={{textAlign: 'left'}}>
-                  <Typography>{`${successfulSyncsCount ?? UNDERSCORE_STRING}/${
-                    updateLogs?.logs.length ?? UNDERSCORE_STRING
-                  } YNAB transaction updates successful`}</Typography>
-
-                  <Typography>{`${successfulUndosCount ?? UNDERSCORE_STRING}/${
-                    undoUpdateLogs?.logs.length ?? UNDERSCORE_STRING
-                  } YNAB undo updates successful`}</Typography>
-                </Box>
-              </CardContent>
-            </Card>
-
-            <Box>
-              <InputFileUpload
-                labelCount={labels?.length ?? null}
-                onLabelPrefixChange={setLabelPrefixNotDeferred}
-                onNewLabelData={setLabelData}
-              />
-            </Box>
-
-            <Box>
-              <Button
-                // disabled={ynabApi != null}
-                onClick={authorizeWithYNAB}
-                variant="solid">
-                Authorize with YNAB
-              </Button>
-            </Box>
-
-            <Box>
-              <Button
-                // disabled={ynabApi != null}
-                onClick={() => {
-                  if (ynabApi == null) {
-                    console.warn('ynabApi is null.');
-                    return;
-                  }
-                  ynabApi.user
-                    .getUser()
-                    .then((response) => {
-                      console.debug('[getUser] response', response);
-                    })
-                    .catch((error) => {
-                      console.debug('[getUser] error', error);
-                    });
-                }}
-                variant="solid">
-                Get User
-              </Button>
-            </Box>
-
-            <Box sx={{minWidth: 240}}>
-              <FormControl disabled={ynabApi == null || budgets == null}>
-                <FormLabel id="budget-selector-label-id">
-                  Select your budget
-                </FormLabel>
-                <Select
-                  id="budget-selector"
-                  onChange={(
-                    _event: React.SyntheticEvent | null,
-                    newValue: string | null,
-                  ) => {
-                    // console.log(event);
-                    const newBudgetID = newValue;
-                    if (selectedBudgetID !== newBudgetID) {
-                      console.debug(
-                        'New budgetID selected. Clearing accounts and transactions',
-                      );
-                      setSelectedAccountID(null);
-                      setAccounts(null);
-                      setTransactions(null);
-                      setSelectedBudgetID(newBudgetID);
-                    }
-                  }}
-                  placeholder="Select budget..."
-                  value={selectedBudgetID}>
-                  {budgets?.map((budget) => (
-                    <Option key={budget.id} value={budget.id}>
-                      {budget.name}
-                    </Option>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            <Box sx={{minWidth: 240}}>
-              <FormControl
-                disabled={
-                  ynabApi == null ||
-                  selectedBudgetID == null ||
-                  accounts == null
-                }>
-                <FormLabel id="account-selector-label-id">
-                  Select your account
-                </FormLabel>
-                <Select
-                  onChange={(
-                    event: React.SyntheticEvent | null,
-                    newValue: string | null,
-                  ) => {
-                    console.log(event);
-                    const newAccountID = newValue;
-                    if (selectedAccountID !== newAccountID) {
-                      console.debug(
-                        'New accountID selected. Clearing transactions',
-                      );
-                      setTransactions(null);
-                      setSelectedAccountID(newAccountID);
-                    }
-                  }}
-                  placeholder="Select account..."
-                  value={selectedAccountID}>
-                  {accounts?.map((account) => (
-                    <Option key={account.id} value={account.id}>
-                      {account.name}
-                    </Option>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            <Box role="group">
-              <Typography component="legend">
-                Do not apply labels to...
-              </Typography>
-              <List size="sm">
-                <ListItem>
-                  <Checkbox
-                    checked={labelSyncFilterConfig.omitNonemptyMemo}
-                    label="Transactions With Pre-existing Memos"
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setLabelSyncFilterConfig((prev) => ({
-                        ...prev,
-                        omitNonemptyMemo: e.target.checked,
-                      }))
-                    }
+                  <InputFileUpload
+                    cardStyle={cardStyle}
+                    labelCount={labels?.length ?? null}
+                    onLabelPrefixChange={setLabelPrefixNotDeferred}
+                    onNewLabelData={setLabelData}
                   />
-                </ListItem>
-                <ListItem>
-                  <Checkbox
-                    checked={labelSyncFilterConfig.omitAlreadyCategorized}
-                    label="Transactions That Are Already Categorized"
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setLabelSyncFilterConfig((prev) => ({
-                        ...prev,
-                        omitAlreadyCategorized: e.target.checked,
-                      }))
-                    }
-                  />
-                </ListItem>
-                <ListItem>
-                  <Checkbox
-                    checked={labelSyncFilterConfig.omitReconciled}
-                    label="Reconciled Transactions"
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setLabelSyncFilterConfig((prev) => ({
-                        ...prev,
-                        omitReconciled: e.target.checked,
-                      }))
-                    }
-                  />
-                </ListItem>
-              </List>
-            </Box>
 
-            <Box>
-              <Button
-                disabled={
-                  ynabApi == null ||
-                  transactions == null ||
-                  transactions.length === 0 ||
-                  labels == null ||
-                  labels.length === 0 ||
-                  successfulMatchesCount === 0
-                }
-                onClick={() => {
-                  if (ynabApi == null) {
-                    // TODO: Show the user these errors instead of failing silently
-                    console.error('[Sync labels] YNAB API not available');
-                    return;
-                  }
-                  if (selectedBudgetID == null) {
-                    console.error('[Sync labels] No budget selected');
-                    return;
-                  }
-                  setUpdateLogs(null);
-                  setUndoUpdateLogs(null);
+                  <Card sx={cardStyle}>
+                    <Box sx={{mb: 1}}>
+                      <Typography level="title-md">
+                        Step 4: Sync Labels to YNAB
+                      </Typography>
+                      <Typography level="body-sm">
+                        This will update the relevant YNAB transactions with the
+                        labels you provided. Download your update logs after
+                        syncing to help debug any issue you may encounter, and
+                        to be able to undo the sync at a later time.
+                      </Typography>
+                    </Box>
+                    <Divider />
+                    <Stack alignItems="start" spacing={2} sx={{my: 1}}>
+                      <Box role="group">
+                        <Typography component="legend">
+                          Do not apply labels to...
+                        </Typography>
+                        <List size="sm">
+                          <ListItem>
+                            <Checkbox
+                              checked={labelSyncFilterConfig.omitNonemptyMemo}
+                              label="Transactions With Pre-existing Memos"
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                              ) =>
+                                setLabelSyncFilterConfig((prev) => ({
+                                  ...prev,
+                                  omitNonemptyMemo: e.target.checked,
+                                }))
+                              }
+                            />
+                          </ListItem>
+                          <ListItem>
+                            <Checkbox
+                              checked={
+                                labelSyncFilterConfig.omitAlreadyCategorized
+                              }
+                              label="Transactions That Are Already Categorized"
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                              ) =>
+                                setLabelSyncFilterConfig((prev) => ({
+                                  ...prev,
+                                  omitAlreadyCategorized: e.target.checked,
+                                }))
+                              }
+                            />
+                          </ListItem>
+                          <ListItem>
+                            <Checkbox
+                              checked={labelSyncFilterConfig.omitReconciled}
+                              label="Reconciled Transactions"
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                              ) =>
+                                setLabelSyncFilterConfig((prev) => ({
+                                  ...prev,
+                                  omitReconciled: e.target.checked,
+                                }))
+                              }
+                            />
+                          </ListItem>
+                        </List>
+                      </Box>
+                    </Stack>
 
-                  syncLabelsToYnab({
-                    budgetID: selectedBudgetID,
-                    finalizedMatches: finalizedMatchesFiltered,
-                    ynabAPI: ynabApi,
-                  })
-                    .then((updateLogs) => {
-                      setUpdateLogs(updateLogs);
-                    })
-                    .catch((error) => {
-                      console.error(
-                        '📡❌ Error syncing labels to YNAB.',
-                        error,
-                      );
-                      getYNABErrorHandler(() => setYnabApi(null))(error);
-                    });
-                }}
-                variant="solid">
-                Sync labels to YNAB
-              </Button>
-            </Box>
+                    <Divider />
 
-            <Box>
-              <Button
-                disabled={
-                  ynabApi != null ||
-                  updateLogs == null ||
-                  updateLogs.logs.length === 0 ||
-                  undoUpdateLogs != null
-                }
-                onClick={() => {
-                  if (ynabApi == null) {
-                    // TODO: Show the user these errors instead of failing silently
-                    console.error('[Undo Sync labels] YNAB API not available');
-                    return;
-                  }
-                  if (selectedBudgetID == null) {
-                    console.error('[Undo Sync labels] No budget selected');
-                    return;
-                  }
-                  if (updateLogs == null) {
-                    console.error(
-                      '[Undo Sync labels] No update logs available',
-                    );
-                    return;
-                  }
+                    <CardOverflow sx={{mt: '-12px'}}>
+                      <CardActions sx={{alignSelf: 'flex-end', pt: 2}}>
+                        <Stack spacing={2}>
+                          <Stack direction="row" spacing={2}>
+                            <Button
+                              disabled={
+                                ynabApi != null ||
+                                updateLogs == null ||
+                                updateLogs.logs.length === 0 ||
+                                undoUpdateLogs != null
+                              }
+                              onClick={() => {
+                                if (ynabApi == null) {
+                                  // TODO: Show the user these errors instead of failing silently
+                                  console.error(
+                                    '[Undo Sync labels] YNAB API not available',
+                                  );
+                                  return;
+                                }
+                                if (selectedBudgetID == null) {
+                                  console.error(
+                                    '[Undo Sync labels] No budget selected',
+                                  );
+                                  return;
+                                }
+                                if (updateLogs == null) {
+                                  console.error(
+                                    '[Undo Sync labels] No update logs available',
+                                  );
+                                  return;
+                                }
 
-                  undoSyncLabelsToYnab({
-                    budgetID: selectedBudgetID,
-                    updateLogChunk: updateLogs,
-                    ynabAPI: ynabApi,
-                  })
-                    .then((undoUpdateLogs) => {
-                      setUndoUpdateLogs(undoUpdateLogs);
-                    })
-                    .catch((error) => {
-                      console.error(
-                        '📡❌ Error undoing the YNAB label sync.',
-                        error,
-                      );
-                      getYNABErrorHandler(() => setYnabApi(null))(error);
-                    });
-                }}
-                variant="solid">
-                UNDO Sync
-              </Button>
-            </Box>
+                                undoSyncLabelsToYnab({
+                                  budgetID: selectedBudgetID,
+                                  updateLogChunk: updateLogs,
+                                  ynabAPI: ynabApi,
+                                })
+                                  .then((undoUpdateLogs) => {
+                                    setUndoUpdateLogs(undoUpdateLogs);
+                                  })
+                                  .catch((error) => {
+                                    console.error(
+                                      '📡❌ Error undoing the YNAB label sync.',
+                                      error,
+                                    );
+                                    getYNABErrorHandler(() => setYnabApi(null))(
+                                      error,
+                                    );
+                                  });
+                              }}
+                              variant="solid">
+                              UNDO Sync
+                            </Button>
 
-            <Box>
-              <Button
-                disabled={updateLogs == null && undoUpdateLogs == null}
-                onClick={() =>
-                  initiateUserJSONDownload(
-                    getDateTimeString() + '__YNAB-Labeler-update-logs.json',
-                    [updateLogs, undoUpdateLogs].filter(Boolean),
-                    {prettyFormat: true},
-                  )
-                }>
-                Download update logs
-              </Button>
-            </Box>
+                            <Button
+                              disabled={
+                                ynabApi == null ||
+                                transactions == null ||
+                                transactions.length === 0 ||
+                                labels == null ||
+                                labels.length === 0 ||
+                                successfulMatchesCount === 0
+                              }
+                              onClick={() => {
+                                if (ynabApi == null) {
+                                  // TODO: Show the user these errors instead of failing silently
+                                  console.error(
+                                    '[Sync labels] YNAB API not available',
+                                  );
+                                  return;
+                                }
+                                if (selectedBudgetID == null) {
+                                  console.error(
+                                    '[Sync labels] No budget selected',
+                                  );
+                                  return;
+                                }
+                                setUpdateLogs(null);
+                                setUndoUpdateLogs(null);
 
-            <Box>
-              <Checkbox
-                checked={showAllLabelsAndTransactions}
-                label="Show all labels, transactions and matches"
-                onChange={({
-                  target: {checked},
-                }: React.ChangeEvent<HTMLInputElement>) =>
-                  setShowAllLabelsAndTransactions(checked)
-                }
-              />
-            </Box>
+                                syncLabelsToYnab({
+                                  budgetID: selectedBudgetID,
+                                  finalizedMatches: finalizedMatchesFiltered,
+                                  ynabAPI: ynabApi,
+                                })
+                                  .then((updateLogs) => {
+                                    setUpdateLogs(updateLogs);
+                                  })
+                                  .catch((error) => {
+                                    console.error(
+                                      '📡❌ Error syncing labels to YNAB.',
+                                      error,
+                                    );
+                                    getYNABErrorHandler(() => setYnabApi(null))(
+                                      error,
+                                    );
+                                  });
+                              }}
+                              variant="solid">
+                              Sync labels to YNAB
+                            </Button>
+                          </Stack>
+
+                          <Button
+                            disabled={
+                              updateLogs == null && undoUpdateLogs == null
+                            }
+                            onClick={() =>
+                              initiateUserJSONDownload(
+                                getDateTimeString() +
+                                  '__YNAB-Labeler-update-logs.json',
+                                [updateLogs, undoUpdateLogs].filter(Boolean),
+                                {prettyFormat: true},
+                              )
+                            }>
+                            Download update logs
+                          </Button>
+                        </Stack>
+                      </CardActions>
+                    </CardOverflow>
+                  </Card>
+
+                  <Box></Box>
+
+                  <Box>
+                    <Checkbox
+                      checked={showAllLabelsAndTransactions}
+                      label="Show all labels, transactions and matches"
+                      onChange={({
+                        target: {checked},
+                      }: React.ChangeEvent<HTMLInputElement>) =>
+                        setShowAllLabelsAndTransactions(checked)
+                      }
+                    />
+                  </Box>
+                </Stack>
+              </Grid>
+
+              <Grid sm={6} xs={12}>
+                <Card
+                  color="primary"
+                  invertedColors={true}
+                  size="lg"
+                  sx={{width: 'fit-content'}}
+                  variant="solid">
+                  <CardContent>
+                    <Typography level="title-lg" sx={{marginBottom: 2}}>
+                      Status
+                    </Typography>
+
+                    <Box sx={{mb: 2, textAlign: 'start'}}>
+                      <Typography>{`${
+                        labels?.length ?? UNDERSCORE_STRING
+                      } labels loaded`}</Typography>
+
+                      <Typography>{`${
+                        transactions?.length ?? UNDERSCORE_STRING
+                      } YNAB transactions fetched`}</Typography>
+
+                      <Typography>{`${
+                        matchCandidates == null
+                          ? UNDERSCORE_STRING
+                          : successfulMatchesCount
+                      }/${
+                        labels?.length ?? UNDERSCORE_STRING
+                      } labels matched to a YNAB transaction`}</Typography>
+
+                      <Typography>{`${
+                        matchCandidates == null || labels == null
+                          ? UNDERSCORE_STRING
+                          : labels.length - successfulMatchesCount
+                      } labels had no match`}</Typography>
+                    </Box>
+
+                    <Box sx={{mb: 2, textAlign: 'start'}}>
+                      <Typography>{`${
+                        matchCandidates == null
+                          ? UNDERSCORE_STRING
+                          : successfulMatchesThatPassFiltersCount
+                      }/${
+                        matchCandidates == null
+                          ? UNDERSCORE_STRING
+                          : successfulMatchesCount
+                      } labels will be synced based on filter criteria`}</Typography>
+                    </Box>
+
+                    <Box sx={{textAlign: 'start'}}>
+                      <Typography>{`${
+                        successfulSyncsCount ?? UNDERSCORE_STRING
+                      }/${
+                        updateLogs?.logs.length ?? UNDERSCORE_STRING
+                      } YNAB transaction updates successful`}</Typography>
+
+                      <Typography>{`${
+                        successfulUndosCount ?? UNDERSCORE_STRING
+                      }/${
+                        undoUpdateLogs?.logs.length ?? UNDERSCORE_STRING
+                      } YNAB undo updates successful`}</Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
 
             {
               // TODO: paginate and/or virtualize these lists to limit the cost of rerendering

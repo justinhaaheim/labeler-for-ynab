@@ -1,4 +1,5 @@
 import type {ParsedLabelsTyped} from './LabelParser';
+import type {SxProps} from '@mui/system';
 
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 import {styled} from '@mui/joy';
@@ -34,6 +35,7 @@ const VisuallyHiddenInput = styled('input')`
 `;
 
 type Props = {
+  cardStyle: SxProps;
   labelCount: number | null;
   onLabelPrefixChange: (prefix: string) => void;
   onNewLabelData: (labels: ParsedLabelsTyped) => void;
@@ -43,6 +45,7 @@ export default function InputFileUpload({
   onNewLabelData,
   onLabelPrefixChange,
   labelCount,
+  cardStyle,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -64,16 +67,16 @@ export default function InputFileUpload({
   }, [onLabelPrefixChangeDebounced]);
 
   return (
-    <Card sx={{maxWidth: '35em'}}>
+    <Card sx={cardStyle}>
       <Box sx={{mb: 1}}>
-        <Typography level="title-md">Upload Labels</Typography>
+        <Typography level="title-md">Step 3: Upload Labels</Typography>
         <Typography level="body-sm">
           Upload a .csv file containing the labels to apply to your YNAB
           transactions.
         </Typography>
       </Box>
       <Divider />
-      <Stack alignItems="center" spacing={2} sx={{my: 1}}>
+      <Stack alignItems="start" spacing={2} sx={{my: 1}}>
         <Button
           color="neutral"
           component="label"
