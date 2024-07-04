@@ -51,6 +51,7 @@ import {
 } from './Matching';
 import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
+import {getYNABErrorHandler, YNAB_TOKEN_LOCAL_STORAGE_KEY} from './YnabHelpers';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
@@ -60,7 +61,6 @@ const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 const UNDERSCORE_STRING = '__';
 const LABEL_PREFIX_SEPARATOR = ' ';
 
-const YNAB_TOKEN_LOCAL_STORAGE_KEY = 'ynab_access_token';
 const YNAB_ACCESS_TOKEN_URL_HASH_KEY = 'access_token';
 
 // const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
@@ -259,9 +259,14 @@ function App() {
       if (!USE_CACHED_RESPONSES) {
         (async function () {
           console.debug('📡 Fetching budgets data...');
-          const budgetsResponse = await ynabApi.budgets.getBudgets();
-          console.debug('📡 Budget data received', budgetsResponse);
-          setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
+          try {
+            const budgetsResponse = await ynabApi.budgets.getBudgets();
+            console.debug('📡 Budget data received', budgetsResponse);
+            setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
+          } catch (error: unknown) {
+            const handler = getYNABErrorHandler(() => setYnabApi(null));
+            handler(error);
+          }
         })();
       } else {
         console.debug('Using cached budgets data');
@@ -285,10 +290,15 @@ function App() {
       } else {
         (async function () {
           console.debug('📡 Fetching accounts data...');
-          const accountsResponse =
-            await ynabApi.accounts.getAccounts(selectedBudgetID);
-          console.debug('📡 Accounts data received', accountsResponse);
-          setAccounts(accountsResponse.data.accounts);
+          try {
+            const accountsResponse =
+              await ynabApi.accounts.getAccounts(selectedBudgetID);
+            console.debug('📡 Accounts data received', accountsResponse);
+            setAccounts(accountsResponse.data.accounts);
+          } catch (error: unknown) {
+            const handler = getYNABErrorHandler(() => setYnabApi(null));
+            handler(error);
+          }
         })();
       }
     }
@@ -302,18 +312,21 @@ function App() {
       transactions == null
     ) {
       (async function () {
-        console.debug('📡 Fetching transactions data...');
-        const transactionsResponse =
-          await ynabApi.transactions.getTransactionsByAccount(
-            selectedBudgetID,
-            selectedAccountID,
-          );
-        const transactions = transactionsResponse.data.transactions;
-        console.debug(`${transactions.length} transactions fetched`);
-        console.debug('transactions:', transactions);
-        setTransactions(transactions);
-        // @ts-ignore - remove later
-        window.transactions = transactions;
+        try {
+          console.debug('📡 Fetching transactions data...');
+          const transactionsResponse =
+            await ynabApi.transactions.getTransactionsByAccount(
+              selectedBudgetID,
+              selectedAccountID,
+            );
+          const transactions = transactionsResponse.data.transactions;
+          console.debug(`${transactions.length} transactions fetched`);
+          console.debug('transactions:', transactions);
+          setTransactions(transactions);
+        } catch (error: unknown) {
+          const handler = getYNABErrorHandler(() => setYnabApi(null));
+          handler(error);
+        }
       })();
     }
   }, [selectedAccountID, selectedBudgetID, transactions, ynabApi]);
@@ -330,6 +343,13 @@ function App() {
     e.preventDefault();
     const uri = `https://app.ynab.com/oauth/authorize?client_id=${config.clientId}&redirect_uri=${config.redirectUri}&response_type=token`;
     window.location.replace(uri);
+    // fetch(uri, {method: 'GET', mode: 'no-cors'})
+    //   .then((response) => {
+    //     console.debug('response', response);
+    //   })
+    //   .catch((error) => {
+    //     console.debug('error', error);
+    //   });
   }, []);
 
   return (
@@ -432,10 +452,32 @@ function App() {
 
             <Box>
               <Button
-                disabled={ynabApi != null}
+                // disabled={ynabApi != null}
                 onClick={authorizeWithYNAB}
                 variant="solid">
                 Authorize with YNAB
+              </Button>
+            </Box>
+
+            <Box>
+              <Button
+                // disabled={ynabApi != null}
+                onClick={() => {
+                  if (ynabApi == null) {
+                    console.warn('ynabApi is null.');
+                    return;
+                  }
+                  ynabApi.user
+                    .getUser()
+                    .then((response) => {
+                      console.debug('[getUser] response', response);
+                    })
+                    .catch((error) => {
+                      console.debug('[getUser] error', error);
+                    });
+                }}
+                variant="solid">
+                Get User
               </Button>
             </Box>
 
@@ -585,7 +627,11 @@ function App() {
                       setUpdateLogs(updateLogs);
                     })
                     .catch((error) => {
-                      console.error('syncLabelsToYnab error:', error);
+                      console.error(
+                        '📡❌ Error syncing labels to YNAB.',
+                        error,
+                      );
+                      getYNABErrorHandler(() => setYnabApi(null))(error);
                     });
                 }}
                 variant="solid">
@@ -596,6 +642,7 @@ function App() {
             <Box>
               <Button
                 disabled={
+                  ynabApi != null ||
                   updateLogs == null ||
                   updateLogs.logs.length === 0 ||
                   undoUpdateLogs != null
@@ -626,7 +673,11 @@ function App() {
                       setUndoUpdateLogs(undoUpdateLogs);
                     })
                     .catch((error) => {
-                      console.error('undoSyncLabelsToYnab error:', error);
+                      console.error(
+                        '📡❌ Error undoing the YNAB label sync.',
+                        error,
+                      );
+                      getYNABErrorHandler(() => setYnabApi(null))(error);
                     });
                 }}
                 variant="solid">

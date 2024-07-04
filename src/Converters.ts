@@ -184,10 +184,8 @@ export function getLabelsFromAmazonOrders(
   const orderIdTotalOccurrenceCounter: {[key: string]: number} = {};
 
   orders.forEach((order) => {
-    if (orderIdTotalOccurrenceCounter[order.order_id] == null) {
-      orderIdTotalOccurrenceCounter[order.order_id] = 0;
-    }
-    orderIdTotalOccurrenceCounter[order.order_id] += 1;
+    orderIdTotalOccurrenceCounter[order.order_id] =
+      (orderIdTotalOccurrenceCounter[order.order_id] ?? 0) + 1;
   });
 
   // Count the ongoing number of occurrences of each order_id, so that we can
