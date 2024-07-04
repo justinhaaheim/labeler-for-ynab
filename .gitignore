@@ -24,3 +24,5 @@ dist-ssr
 .eslintcache
 
 *.local
+*.local.json
+*.local.*

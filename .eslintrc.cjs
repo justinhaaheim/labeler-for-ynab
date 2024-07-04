@@ -76,6 +76,9 @@ module.exports = {
         // (This helps configure simple-import-sort) Make sure all imports are at the top of the file
         'import/first': ERROR,
 
+        // We rely on the typescript-eslint specific no-unused-vars rule
+        'no-unused-vars': OFF,
+
         'simple-import-sort/imports': [
           ERROR,
           {
@@ -120,6 +123,8 @@ module.exports = {
     'no-unused-expressions': ERROR,
 
     'no-unused-vars': NO_UNUSED_VARS_CONFIG,
+
+    'no-var': ERROR,
 
     quotes: [ERROR, 'single', {allowTemplateLiterals: true, avoidEscape: true}],
 

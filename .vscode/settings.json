@@ -25,7 +25,8 @@
   // "typescript.tsdk": "node_modules/typescript/lib",
   "search.exclude": {
     "**/.yarn": true
-  }
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
   // "eslint.debug": true
   // "eslint.options": {
   //   "extensions": [".cjs", ".js", ".jsx", ".ts", ".tsx"]
