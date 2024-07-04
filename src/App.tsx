@@ -25,6 +25,7 @@ import Select from '@mui/joy/Select';
 import Sheet from '@mui/joy/Sheet';
 import Snackbar from '@mui/joy/Snackbar';
 import Stack from '@mui/joy/Stack';
+import {useColorScheme} from '@mui/joy/styles';
 import Typography from '@mui/joy/Typography';
 import {
   useCallback,
@@ -84,6 +85,8 @@ type LabelSyncFilterConfig = {
 // window.ynabAPI = ynabAPI;
 
 function App() {
+  const {mode} = useColorScheme();
+
   const [_ynabToken, setYnabToken] = useState<string | null>(null);
   const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
   const [ynabAuthError, setYnabAuthError] = useState<YNABErrorType | null>(
@@ -761,10 +764,10 @@ function App() {
               <Grid sm={6} xs={12}>
                 <Card
                   color="primary"
-                  invertedColors={true}
+                  invertedColors={mode === 'dark'}
                   size="lg"
                   sx={{width: 'fit-content'}}
-                  variant="solid">
+                  variant={mode === 'light' ? 'soft' : 'solid'}>
                   <CardContent>
                     <Typography level="title-lg" sx={{marginBottom: 2}}>
                       Status
