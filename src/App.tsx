@@ -37,16 +37,11 @@ import {
 import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
-// accounts for budgetID 21351b66-d7c6-4e53-895b-b8cd753c2347
-import accountsCachedJson from './accountsCached.local.json';
-import amazonLabels2024Local from './amazonLabels2024.local';
-import budgetsCachedJson from './budgetsCached.local.json';
 import ColorSchemeToggle from './ColorSchemeToggle';
 import config from './config.json';
 import {
   convertParsedLabelsToStandardTransaction,
   convertYnabToStandardTransaction,
-  getLabelsFromCsv,
 } from './Converters';
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
@@ -60,15 +55,11 @@ import {
 import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import {
+  budgetCompareFunctionForSort,
   getYNABErrorHandler,
   YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
   YNAB_TOKEN_LOCAL_STORAGE_KEY,
 } from './YnabHelpers';
-
-const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
-
-const USE_CACHED_RESPONSES = false; // true;
-const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
 
 const YNAB_DEFAULT_TOKEN_EXPIRATION_TIME_SECONDS = 7200;
 // Err on the side of telling the user it expires earlier than it does
@@ -117,9 +108,6 @@ function App() {
 
   const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);
   const labelsWithoutPrefix = useMemo<StandardTransactionType[] | null>(() => {
-    if (USE_CACHED_RESPONSES) {
-      return getLabelsFromCsv(amazonLabels2024Local);
-    }
     if (labelData != null) {
       // Take the raw data that was parsed and determine the best label from it
       return convertParsedLabelsToStandardTransaction(labelData);
@@ -303,64 +291,36 @@ function App() {
 
   useEffect(() => {
     if (ynabApi != null && budgets == null) {
-      const budgetSortFn = (b1: ynab.BudgetSummary, b2: ynab.BudgetSummary) => {
-        // Use the unary to convert date to number https://github.com/microsoft/TypeScript/issues/5710#issuecomment-157886246
-        const d1 =
-          b1.last_modified_on != null
-            ? +new Date(b1.last_modified_on)
-            : Number.NEGATIVE_INFINITY;
-        const d2 =
-          b2.last_modified_on != null
-            ? +new Date(b2.last_modified_on)
-            : Number.NEGATIVE_INFINITY;
-        // We want dates in descending order
-        return d2 - d1;
-      };
-      if (!USE_CACHED_RESPONSES) {
-        (async function () {
-          console.debug('📡 Fetching budgets data...');
-          try {
-            const budgetsResponse = await ynabApi.budgets.getBudgets();
-            console.debug('📡 Budget data received', budgetsResponse);
-            setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
-          } catch (error: unknown) {
-            const handler = getYNABErrorHandler(onAuthError);
-            handler(error);
-          }
-        })();
-      } else {
-        console.debug('Using cached budgets data');
-        setTimeout(() => {
-          setBudgets(budgetsCachedJson.sort(budgetSortFn));
-        }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
-      }
+      (async function () {
+        console.debug('📡 Fetching budgets data...');
+        try {
+          const budgetsResponse = await ynabApi.budgets.getBudgets();
+          console.debug('📡 Budget data received', budgetsResponse);
+          setBudgets(
+            budgetsResponse.data.budgets.sort(budgetCompareFunctionForSort),
+          );
+        } catch (error: unknown) {
+          const handler = getYNABErrorHandler(onAuthError);
+          handler(error);
+        }
+      })();
     }
   }, [budgets, onAuthError, ynabApi]);
 
   useEffect(() => {
     if (ynabApi != null && selectedBudgetID != null && accounts == null) {
-      if (
-        USE_CACHED_RESPONSES &&
-        selectedBudgetID === budgetIDForCachedAccounts
-      ) {
-        console.debug('Using cached accounts data');
-        setTimeout(() => {
-          setAccounts(accountsCachedJson as ynab.Account[]);
-        }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
-      } else {
-        (async function () {
-          console.debug('📡 Fetching accounts data...');
-          try {
-            const accountsResponse =
-              await ynabApi.accounts.getAccounts(selectedBudgetID);
-            console.debug('📡 Accounts data received', accountsResponse);
-            setAccounts(accountsResponse.data.accounts);
-          } catch (error: unknown) {
-            const handler = getYNABErrorHandler(() => setYnabApi(null));
-            handler(error);
-          }
-        })();
-      }
+      (async function () {
+        console.debug('📡 Fetching accounts data...');
+        try {
+          const accountsResponse =
+            await ynabApi.accounts.getAccounts(selectedBudgetID);
+          console.debug('📡 Accounts data received', accountsResponse);
+          setAccounts(accountsResponse.data.accounts);
+        } catch (error: unknown) {
+          const handler = getYNABErrorHandler(() => setYnabApi(null));
+          handler(error);
+        }
+      })();
     }
   }, [accounts, selectedBudgetID, ynabApi]);
 
