@@ -3,6 +3,8 @@ import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLogChunk} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
 
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
 import Card from '@mui/joy/Card';
@@ -767,6 +769,31 @@ function App() {
                     <Typography level="title-lg" sx={{marginBottom: 2}}>
                       Status
                     </Typography>
+
+                    <Box sx={{mb: 2, textAlign: 'start'}}>
+                      {ynabApi != null ? (
+                        <Typography
+                          startDecorator={
+                            <CheckCircleRoundedIcon
+                              color="success"
+                              fontSize="large"
+                            />
+                          }>
+                          Connected to YNAB
+                        </Typography>
+                      ) : (
+                        <Typography
+                          startDecorator={
+                            <RemoveCircleOutlineRoundedIcon
+                              // @ts-ignore no overload matches this call. Don't know why it's complaining about this one
+                              color="danger"
+                              fontSize="large"
+                            />
+                          }>
+                          Not Connected to YNAB
+                        </Typography>
+                      )}
+                    </Box>
 
                     <Box sx={{mb: 2, textAlign: 'start'}}>
                       <Typography>{`${
