@@ -48,7 +48,7 @@ import {
   convertYnabToStandardTransaction,
   getLabelsFromCsv,
 } from './Converters';
-import {getDateTimeString} from './DateUtils';
+import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
@@ -59,12 +59,20 @@ import {
 } from './Matching';
 import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
-import {getYNABErrorHandler, YNAB_TOKEN_LOCAL_STORAGE_KEY} from './YnabHelpers';
+import {
+  getYNABErrorHandler,
+  YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
+  YNAB_TOKEN_LOCAL_STORAGE_KEY,
+} from './YnabHelpers';
 
 const budgetIDForCachedAccounts = '21351b66-d7c6-4e53-895b-b8cd753c2347';
 
 const USE_CACHED_RESPONSES = false; // true;
 const CACHED_RESPONSE_ARTIFICIAL_DELAY_MS = 500;
+
+const YNAB_DEFAULT_TOKEN_EXPIRATION_TIME_SECONDS = 7200;
+// Err on the side of telling the user it expires earlier than it does
+const TOKEN_EXPIRATION_REDUCTION_MS = 1000 * 60;
 
 const UNDERSCORE_STRING = '__';
 const LABEL_PREFIX_SEPARATOR = ' ';
@@ -88,6 +96,8 @@ function App() {
   const {mode} = useColorScheme();
 
   const [_ynabToken, setYnabToken] = useState<string | null>(null);
+  const [ynabTokenExpirationTimestamp, setYnabTokenExpirationTimestamp] =
+    useState<number | null>(null);
   const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
   const [ynabAuthError, setYnabAuthError] = useState<YNABErrorType | null>(
     null,
@@ -227,6 +237,7 @@ function App() {
   useEffect(() => {
     // Check for the YNAB token provided when we're redirected back from the YNAB OAuth page
     let token = null;
+    let tokenExpirationTimestamp = null;
 
     // NOTE: window.location.hash includes the "#"
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
@@ -240,22 +251,53 @@ function App() {
 
     if (hashToken != null && hashToken.length > 0) {
       token = hashToken;
-      console.debug('Token from URL:', token);
+
+      const expiresInSeconds =
+        Number(hashParams.get('expires_in')) ??
+        YNAB_DEFAULT_TOKEN_EXPIRATION_TIME_SECONDS;
+
+      tokenExpirationTimestamp =
+        Date.now() + expiresInSeconds * 1000 - TOKEN_EXPIRATION_REDUCTION_MS;
+
+      console.debug('YNAB token from URL:', {token, tokenExpirationTimestamp});
 
       // TODO: store when it expires and use that to warn the client when calls to the API will start failing; prompt to reauthorize
       sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
+      sessionStorage.setItem(
+        YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
+        tokenExpirationTimestamp.toString(),
+      );
 
       // Remove the token from the url
       window.location.hash = '';
+      // This is needed to ensure the # is also removed
+      window.location.href =
+        window.location.origin +
+        window.location.pathname +
+        window.location.search;
     } else {
       // Otherwise try sessionStorage
       token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
-      console.debug('Token from session storage:', token);
+      const tokenExpirationFromStorage = sessionStorage.getItem(
+        YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
+      );
+      tokenExpirationTimestamp =
+        tokenExpirationFromStorage == null
+          ? null
+          : Number(tokenExpirationFromStorage);
+      console.debug('Token from session storage:', {
+        token,
+        tokenExpirationTimestamp,
+      });
     }
 
     if (token != null && token.length > 0) {
       setYnabToken(token);
       setYnabApi(new ynab.API(token));
+    }
+
+    if (tokenExpirationTimestamp != null) {
+      setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
     }
   }, []);
 
@@ -359,7 +401,14 @@ function App() {
     React.MouseEventHandler<HTMLAnchorElement>
   >((e) => {
     e.preventDefault();
-    const uri = `https://app.ynab.com/oauth/authorize?client_id=${config.clientId}&redirect_uri=${config.redirectUri}&response_type=token`;
+    const currentLocation = window.location;
+
+    // Remove the hash from the url, including the # sign (which does not get removed if you set location.hash = '')
+    const redirectUri =
+      currentLocation.origin +
+      currentLocation.pathname +
+      currentLocation.search;
+    const uri = `https://app.ynab.com/oauth/authorize?client_id=${config.clientId}&redirect_uri=${redirectUri}&response_type=token`;
     window.location.replace(uri);
     // fetch(uri, {method: 'GET', mode: 'no-cors'})
     //   .then((response) => {
@@ -795,6 +844,11 @@ function App() {
                           }>
                           Not Connected to YNAB
                         </Typography>
+                      )}
+                      {ynabTokenExpirationTimestamp != null && (
+                        <Typography level="body-sm">{`Authorization expires at ${getTimePrettyString(
+                          new Date(ynabTokenExpirationTimestamp),
+                        )}`}</Typography>
                       )}
                     </Box>
 

@@ -7,3 +7,7 @@ export function getDateTimeString(date?: Date): string {
 export function getDateString(date?: Date): string {
   return dayjs(date).format('YYYY-MM-DD');
 }
+
+export function getTimePrettyString(date?: Date): string {
+  return dayjs(date).format('h:mm a');
+}

@@ -1,6 +1,8 @@
 import * as ynab from 'ynab';
 
 export const YNAB_TOKEN_LOCAL_STORAGE_KEY = 'ynab_access_token';
+export const YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY =
+  YNAB_TOKEN_LOCAL_STORAGE_KEY + '_expiration';
 
 export type YNABErrorType = {error: ynab.ErrorDetail};
 
