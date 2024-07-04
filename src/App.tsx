@@ -1,6 +1,7 @@
 import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionType} from './LabelTypes';
 import type {UpdateLogChunk} from './Sync';
+import type {YNABErrorType} from './YnabHelpers';
 
 import Box from '@mui/joy/Box';
 import Button from '@mui/joy/Button';
@@ -17,6 +18,7 @@ import Option from '@mui/joy/Option';
 import Select from '@mui/joy/Select';
 // import Button from '@mui/joy/Button';
 import Sheet from '@mui/joy/Sheet';
+import Snackbar from '@mui/joy/Snackbar';
 import Stack from '@mui/joy/Stack';
 import Typography from '@mui/joy/Typography';
 import {
@@ -79,6 +81,9 @@ type LabelSyncFilterConfig = {
 function App() {
   const [_ynabToken, setYnabToken] = useState<string | null>(null);
   const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
+  const [ynabAuthError, setYnabAuthError] = useState<YNABErrorType | null>(
+    null,
+  );
 
   const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
@@ -202,6 +207,11 @@ function App() {
   const successfulUndosCount: number | null =
     undoUpdateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
 
+  const onAuthError = useCallback((error: YNABErrorType) => {
+    setYnabAuthError(error);
+    setYnabApi(null);
+  }, []);
+
   /////////////////////////////////////////////////
   // Effects
   /////////////////////////////////////////////////
@@ -264,7 +274,7 @@ function App() {
             console.debug('📡 Budget data received', budgetsResponse);
             setBudgets(budgetsResponse.data.budgets.sort(budgetSortFn));
           } catch (error: unknown) {
-            const handler = getYNABErrorHandler(() => setYnabApi(null));
+            const handler = getYNABErrorHandler(onAuthError);
             handler(error);
           }
         })();
@@ -275,7 +285,7 @@ function App() {
         }, CACHED_RESPONSE_ARTIFICIAL_DELAY_MS);
       }
     }
-  }, [budgets, ynabApi]);
+  }, [budgets, onAuthError, ynabApi]);
 
   useEffect(() => {
     if (ynabApi != null && selectedBudgetID != null && accounts == null) {
@@ -787,6 +797,42 @@ function App() {
           </Stack>
         </Sheet>
       </Box>
+
+      <Snackbar
+        anchorOrigin={{horizontal: 'right', vertical: 'bottom'}}
+        color="danger"
+        endDecorator={
+          <Button
+            color="danger"
+            onClick={(e) => {
+              setYnabAuthError(null);
+              authorizeWithYNAB(e);
+            }}
+            size="sm"
+            variant="soft">
+            Reauthorize
+          </Button>
+        }
+        onClose={(_event, reason) => {
+          if (reason === 'clickaway') {
+            // Ignore clickaway
+            return;
+          }
+          setYnabAuthError(null);
+        }}
+        open={ynabAuthError != null}
+        sx={{maxWidth: '50%'}}
+        variant="solid">
+        <Box textAlign="start">
+          <Typography level="title-md">
+            YNAB authorization has expired. Please reauthorize.
+          </Typography>
+          <Typography level="body-sm" textColor="text.primary">
+            Note: you will lose any work on this page when you reauthorize.
+            Please download update logs before leaving the page.
+          </Typography>
+        </Box>
+      </Snackbar>
 
       <Typography
         component="div"
