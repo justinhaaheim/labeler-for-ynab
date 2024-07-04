@@ -9,17 +9,27 @@ export function getYNABErrorHandler(
 ): (error: unknown) => void {
   return (error: unknown) => {
     if (typeof error === 'object' && error != null) {
-      if (
-        ynab.instanceOfErrorDetail(error) &&
-        (error as YNABErrorType).error?.id === '401'
-      ) {
-        console.warn(
-          '📡❌ Error fetching data from YNAB. Probably need to reauthorize',
-          error,
-        );
-        console.debug('Removing expired auth token from session storage');
-        sessionStorage.removeItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
-        onAuthError != null && onAuthError(error as YNABErrorType);
+      if (ynab.instanceOfErrorDetail(error)) {
+        switch ((error as YNABErrorType).error?.id) {
+          case '401': {
+            console.warn(
+              '📡❌ Authentication Error when fetching data from YNAB. Reauthorization needed.',
+              error,
+            );
+            console.debug('Removing expired auth token from session storage');
+            sessionStorage.removeItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
+            onAuthError != null && onAuthError(error as YNABErrorType);
+            break;
+          }
+          case '429': {
+            console.warn(
+              '📡❌ YNAB API rate limit exceeded when fetching data from YNAB.',
+              error,
+            );
+            // TODO: Anything else I should do here?
+            break;
+          }
+        }
       } else {
         console.debug(
           'FYI: Error fetching data from YNAB is not auth related:',
