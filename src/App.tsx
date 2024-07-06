@@ -884,12 +884,19 @@ function App() {
                       } YNAB undo updates successful`}</Typography>
                     </Box>
 
-                    <UpdateLogList
-                      updateChunks={[
-                        updateLogs ?? null,
-                        undoUpdateLogs ?? null,
-                      ].filter(isNonNullable)}
-                    />
+                    {true && (
+                      <Box mt={2}>
+                        <Typography level="title-md" sx={{mb: 1}}>
+                          Updates
+                        </Typography>
+                        <UpdateLogList
+                          updateChunks={[
+                            updateLogs ?? null,
+                            undoUpdateLogs ?? null,
+                          ].filter(isNonNullable)}
+                        />
+                      </Box>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>

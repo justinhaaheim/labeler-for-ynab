@@ -16,6 +16,9 @@ export default function UpdateLogList({updateChunks}: Props) {
   return (
     <List>
       {updateChunks.map((chunk, i) => {
+        const succeededCount = chunk.logs.filter(
+          (log) => log.updateSucceeded,
+        ).length;
         return (
           <>
             <ListItem key={chunk.id}>
@@ -23,6 +26,9 @@ export default function UpdateLogList({updateChunks}: Props) {
                 <Typography level="title-sm">{`${
                   UPDATE_TYPE_PRETTY_STRING[chunk.type]
                 } of ${chunk.logs.length} labels`}</Typography>
+
+                <Typography level="body-sm">{`${succeededCount} of ${chunk.logs.length} updates successful`}</Typography>
+
                 <Typography level="body-sm" noWrap>
                   {getPrettyDateTimeString(new Date(chunk.timestamp))}
                 </Typography>
