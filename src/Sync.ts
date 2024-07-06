@@ -11,18 +11,28 @@ const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 const SPACER_STRING = ' ';
 export const SEPARATOR_BEFORE_LABEL = '##';
 
-type SyncConfig = {
-  accountID: string;
-  budgetID: string;
-  finalizedMatches: LabelTransactionMatch[];
-  ynabAPI: API;
-};
+export const UPDATE_TYPE_PRETTY_STRING = {
+  sync: 'Sync',
+  'undo-sync': 'Undo Sync',
+} as const;
 
-type UndoConfig = {
+export type UpdateType = keyof typeof UPDATE_TYPE_PRETTY_STRING;
+
+export const CURRENT_UPDATE_LOG_VERSION = 1 as const;
+
+export type UpdateLogChunkV1 = {
+  _updateLogVersion: typeof CURRENT_UPDATE_LOG_VERSION;
+  // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
   accountID: string;
   budgetID: string;
-  updateLogChunk: UpdateLogChunkV1;
-  ynabAPI: API;
+  logs: UpdateLogEntryV1[];
+  revertSourceInfo?: {
+    timestamp: number;
+    updateID: string;
+  };
+  timestamp: number;
+  type: UpdateType;
+  updateID: string;
 };
 
 export type UpdateLogEntryV1 = {
@@ -40,30 +50,21 @@ export type UpdateLogEntryV1 = {
 
 type UpdateLogEntryInProgressV1 = Omit<UpdateLogEntryV1, 'updateSucceeded'>;
 
-export const UPDATE_TYPE_PRETTY_STRING = {
-  sync: 'Sync',
-  'undo-sync': 'Undo Sync',
-} as const;
-
-export type UpdateType = keyof typeof UPDATE_TYPE_PRETTY_STRING;
-
-export type UpdateLogChunkV1 = {
-  // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
-  accountID: string;
-  budgetID: string;
-  logs: UpdateLogEntryV1[];
-  revertSourceInfo?: {
-    timestamp: number;
-    updateID: string;
-  };
-  timestamp: number;
-  type: UpdateType;
-  updateID: string;
-};
-
 function getLabelWithSeparator(label: StandardTransactionType): string {
   return SEPARATOR_BEFORE_LABEL + SPACER_STRING + label.memo;
 }
+
+type SyncConfig = {
+  accountID: string;
+  budgetID: string;
+  finalizedMatches: LabelTransactionMatch[];
+  ynabAPI: API;
+};
+
+type UndoConfig = {
+  updateLogChunk: UpdateLogChunkV1;
+  ynabAPI: API;
+};
 
 export async function syncLabelsToYnab({
   accountID,
@@ -155,6 +156,7 @@ export async function syncLabelsToYnab({
   console.debug('saveTransactionResponse', saveTransactionResponse);
 
   return {
+    _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
     accountID,
     budgetID,
     logs: updateLogsFinalized,
@@ -221,6 +223,7 @@ export async function undoSyncLabelsToYnab({
   );
 
   return {
+    _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
     accountID,
     budgetID,
     logs: undoUpdateLogsFinalized,

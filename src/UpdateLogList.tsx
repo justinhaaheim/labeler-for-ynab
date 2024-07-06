@@ -24,6 +24,7 @@ type Props = {
   updateChunks: UpdateLogChunkV1[];
   ynabApi: ynab.API | null;
 };
+
 export default function UpdateLogList({
   onNewUpdateLogs,
   updateChunks,
@@ -46,8 +47,6 @@ export default function UpdateLogList({
           }
 
           undoSyncLabelsToYnab({
-            accountID: chunk.accountID,
-            budgetID: chunk.budgetID,
             updateLogChunk: chunk,
             ynabAPI: ynabApi,
           })
