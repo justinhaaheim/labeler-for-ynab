@@ -52,6 +52,10 @@ export type UpdateLogChunkV1 = {
   accountID: string;
   budgetID: string;
   logs: UpdateLogEntryV1[];
+  revertSourceInfo?: {
+    timestamp: number;
+    updateID: string;
+  };
   timestamp: number;
   type: UpdateType;
   updateID: string;
@@ -220,6 +224,10 @@ export async function undoSyncLabelsToYnab({
     accountID,
     budgetID,
     logs: undoUpdateLogsFinalized,
+    revertSourceInfo: {
+      timestamp: updateLogChunk.timestamp,
+      updateID: updateLogChunk.updateID,
+    },
     timestamp: Date.now(),
     type: 'undo-sync',
     updateID: uuidv4(),

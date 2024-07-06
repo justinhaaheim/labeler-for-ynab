@@ -66,6 +66,12 @@ export default function UpdateLogList({
               <ListItemContent>
                 <Typography level="title-sm">{`${
                   UPDATE_TYPE_PRETTY_STRING[chunk.type]
+                }${
+                  chunk.revertSourceInfo != null
+                    ? ` ${getPrettyDateTimeStringWithSeconds(
+                        new Date(chunk.revertSourceInfo.timestamp),
+                      )}`
+                    : ''
                 } ${chunk.logs.length} labels`}</Typography>
 
                 <Typography level="body-sm">{`${succeededCount} of ${chunk.logs.length} updates successful`}</Typography>
