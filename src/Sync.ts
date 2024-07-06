@@ -161,12 +161,12 @@ export async function syncLabelsToYnab({
 }
 
 export async function undoSyncLabelsToYnab({
-  accountID,
-  budgetID,
   ynabAPI,
   updateLogChunk,
 }: UndoConfig): Promise<UpdateLogChunkV1> {
   console.log('undoSyncLabelsToYnab');
+
+  const {accountID, budgetID} = updateLogChunk;
 
   let undoUpdateLogs: UpdateLogEntryInProgressV1[] = [];
 
