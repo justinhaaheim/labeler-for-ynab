@@ -10,18 +10,20 @@ const SPACER_STRING = ' ';
 export const SEPARATOR_BEFORE_LABEL = '##';
 
 type SyncConfig = {
+  accountID: string;
   budgetID: string;
   finalizedMatches: LabelTransactionMatch[];
   ynabAPI: API;
 };
 
 type UndoConfig = {
+  accountID: string;
   budgetID: string;
-  updateLogChunk: UpdateLogChunk;
+  updateLogChunk: UpdateLogChunkV1;
   ynabAPI: API;
 };
 
-export type UpdateLogEntry = {
+export type UpdateLogEntryV1 = {
   id: string;
   label: string;
 
@@ -31,11 +33,16 @@ export type UpdateLogEntry = {
   method: 'append-label' | 'remove-label';
   newMemo: string;
   previousMemo: string | undefined;
-  updateSucceeded?: boolean;
+  updateSucceeded: boolean;
 };
 
-export type UpdateLogChunk = {
-  logs: UpdateLogEntry[];
+type UpdateLogEntryInProgressV1 = Omit<UpdateLogEntryV1, 'updateSucceeded'>;
+
+export type UpdateLogChunkV1 = {
+  // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
+  accountID: string;
+  budgetID: string;
+  logs: UpdateLogEntryV1[];
   timestamp: number;
   type: 'sync' | 'undo-sync';
 };
@@ -45,13 +52,14 @@ function getLabelWithSeparator(label: StandardTransactionType): string {
 }
 
 export async function syncLabelsToYnab({
+  accountID,
   budgetID,
   ynabAPI,
   finalizedMatches,
-}: SyncConfig): Promise<UpdateLogChunk> {
+}: SyncConfig): Promise<UpdateLogChunkV1> {
   console.log('syncLabelsToYnab');
 
-  let updateLogs: UpdateLogEntry[] = [];
+  let updateLogs: UpdateLogEntryInProgressV1[] = [];
 
   const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] = (
     finalizedMatches.filter(
@@ -125,24 +133,31 @@ export async function syncLabelsToYnab({
     saveTransactionResponse.data.transaction_ids,
   );
 
-  updateLogs = updateLogs.map((log) => ({
+  const updateLogsFinalized: UpdateLogEntryV1[] = updateLogs.map((log) => ({
     ...log,
     updateSucceeded: successfulTransactionsSet.has(log.id),
   }));
 
   console.debug('saveTransactionResponse', saveTransactionResponse);
 
-  return {logs: updateLogs, timestamp: Date.now(), type: 'sync'};
+  return {
+    accountID,
+    budgetID,
+    logs: updateLogsFinalized,
+    timestamp: Date.now(),
+    type: 'sync',
+  };
 }
 
 export async function undoSyncLabelsToYnab({
+  accountID,
   budgetID,
   ynabAPI,
   updateLogChunk,
-}: UndoConfig): Promise<UpdateLogChunk> {
+}: UndoConfig): Promise<UpdateLogChunkV1> {
   console.log('undoSyncLabelsToYnab');
 
-  let undoUpdateLogs: UpdateLogEntry[] = [];
+  let undoUpdateLogs: UpdateLogEntryInProgressV1[] = [];
 
   const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] =
     updateLogChunk.logs.map((log) => {
@@ -180,7 +195,7 @@ export async function undoSyncLabelsToYnab({
     saveTransactionResponse.data.transaction_ids,
   );
 
-  undoUpdateLogs = undoUpdateLogs.map((log) => ({
+  const undoUpdateLogsFinalized = undoUpdateLogs.map((log) => ({
     ...log,
     updateSucceeded: successfulTransactionsSet.has(log.id),
   }));
@@ -191,7 +206,9 @@ export async function undoSyncLabelsToYnab({
   );
 
   return {
-    logs: undoUpdateLogs,
+    accountID,
+    budgetID,
+    logs: undoUpdateLogsFinalized,
     timestamp: Date.now(),
     type: 'undo-sync',
   };

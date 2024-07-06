@@ -1,6 +1,6 @@
 import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionType} from './LabelTypes';
-import type {UpdateLogChunk} from './Sync';
+import type {UpdateLogChunkV1} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
 
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
@@ -126,9 +126,9 @@ function App() {
     useState<string>('');
   const labelPrefix = useDeferredValue(labelPrefixNotDeferred);
 
-  const [updateLogs, setUpdateLogs] = useState<UpdateLogChunk | null>(null);
+  const [updateLogs, setUpdateLogs] = useState<UpdateLogChunkV1 | null>(null);
 
-  const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunk | null>(
+  const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunkV1 | null>(
     null,
   );
 
@@ -447,27 +447,29 @@ function App() {
                         </Button>
                       </Box>
 
-                      <Box>
-                        <Button
-                          // disabled={ynabApi != null}
-                          onClick={() => {
-                            if (ynabApi == null) {
-                              console.warn('ynabApi is null.');
-                              return;
-                            }
-                            ynabApi.user
-                              .getUser()
-                              .then((response) => {
-                                console.debug('[getUser] response', response);
-                              })
-                              .catch((error) => {
-                                console.debug('[getUser] error', error);
-                              });
-                          }}
-                          variant="solid">
-                          Test Connection
-                        </Button>
-                      </Box>
+                      {import.meta.env.DEV && (
+                        <Box>
+                          <Button
+                            // disabled={ynabApi != null}
+                            onClick={() => {
+                              if (ynabApi == null) {
+                                console.warn('ynabApi is null.');
+                                return;
+                              }
+                              ynabApi.user
+                                .getUser()
+                                .then((response) => {
+                                  console.debug('[getUser] response', response);
+                                })
+                                .catch((error) => {
+                                  console.debug('[getUser] error', error);
+                                });
+                            }}
+                            variant="solid">
+                            Test Connection
+                          </Button>
+                        </Box>
+                      )}
                     </Stack>
                   </Card>
 
@@ -657,6 +659,12 @@ function App() {
                                   );
                                   return;
                                 }
+                                if (selectedAccountID == null) {
+                                  console.error(
+                                    '[Sync labels] No account selected',
+                                  );
+                                  return;
+                                }
                                 if (updateLogs == null) {
                                   console.error(
                                     '[Undo Sync labels] No update logs available',
@@ -665,6 +673,7 @@ function App() {
                                 }
 
                                 undoSyncLabelsToYnab({
+                                  accountID: selectedAccountID,
                                   budgetID: selectedBudgetID,
                                   updateLogChunk: updateLogs,
                                   ynabAPI: ynabApi,
@@ -693,7 +702,9 @@ function App() {
                                 transactions.length === 0 ||
                                 labels == null ||
                                 labels.length === 0 ||
-                                successfulMatchesCount === 0
+                                successfulMatchesCount === 0 ||
+                                selectedAccountID == null ||
+                                selectedBudgetID == null
                               }
                               onClick={() => {
                                 if (ynabApi == null) {
@@ -709,10 +720,17 @@ function App() {
                                   );
                                   return;
                                 }
+                                if (selectedAccountID == null) {
+                                  console.error(
+                                    '[Sync labels] No account selected',
+                                  );
+                                  return;
+                                }
                                 setUpdateLogs(null);
                                 setUndoUpdateLogs(null);
 
                                 syncLabelsToYnab({
+                                  accountID: selectedAccountID,
                                   budgetID: selectedBudgetID,
                                   finalizedMatches: finalizedMatchesFiltered,
                                   ynabAPI: ynabApi,
