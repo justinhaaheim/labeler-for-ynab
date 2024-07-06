@@ -8,8 +8,9 @@ import ListItem from '@mui/joy/ListItem';
 import ListItemContent from '@mui/joy/ListItemContent';
 import ListItemDecorator from '@mui/joy/ListItemDecorator';
 import Typography from '@mui/joy/Typography';
+import React from 'react';
 
-import {getPrettyDateTimeString} from './DateUtils';
+import {getPrettyDateTimeStringWithSeconds} from './DateUtils';
 import {
   undoSyncLabelsToYnab,
   UPDATE_TYPE_PRETTY_STRING,
@@ -60,17 +61,19 @@ export default function UpdateLogList({
         };
 
         return (
-          <>
-            <ListItem key={chunk.id}>
+          <React.Fragment key={chunk.updateID}>
+            <ListItem key={chunk.updateID}>
               <ListItemContent>
                 <Typography level="title-sm">{`${
                   UPDATE_TYPE_PRETTY_STRING[chunk.type]
-                } of ${chunk.logs.length} labels`}</Typography>
+                } ${chunk.logs.length} labels`}</Typography>
 
                 <Typography level="body-sm">{`${succeededCount} of ${chunk.logs.length} updates successful`}</Typography>
 
                 <Typography level="body-sm" noWrap>
-                  {getPrettyDateTimeString(new Date(chunk.timestamp))}
+                  {getPrettyDateTimeStringWithSeconds(
+                    new Date(chunk.timestamp),
+                  )}
                 </Typography>
               </ListItemContent>
               <ListItemDecorator>
@@ -80,7 +83,7 @@ export default function UpdateLogList({
               </ListItemDecorator>
             </ListItem>
             {i !== updateChunks.length - 1 && <ListDivider />}
-          </>
+          </React.Fragment>
         );
       })}
     </List>

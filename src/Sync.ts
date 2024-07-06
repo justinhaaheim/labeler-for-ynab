@@ -51,10 +51,10 @@ export type UpdateLogChunkV1 = {
   // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
   accountID: string;
   budgetID: string;
-  id: string;
   logs: UpdateLogEntryV1[];
   timestamp: number;
   type: UpdateType;
+  updateID: string;
 };
 
 function getLabelWithSeparator(label: StandardTransactionType): string {
@@ -153,10 +153,10 @@ export async function syncLabelsToYnab({
   return {
     accountID,
     budgetID,
-    id: uuidv4(),
     logs: updateLogsFinalized,
     timestamp: Date.now(),
     type: 'sync',
+    updateID: uuidv4(),
   };
 }
 
@@ -219,9 +219,9 @@ export async function undoSyncLabelsToYnab({
   return {
     accountID,
     budgetID,
-    id: uuidv4(),
     logs: undoUpdateLogsFinalized,
     timestamp: Date.now(),
     type: 'undo-sync',
+    updateID: uuidv4(),
   };
 }
