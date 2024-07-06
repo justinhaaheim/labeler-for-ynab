@@ -1,6 +1,6 @@
 import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionType} from './LabelTypes';
-import type {UpdateLogChunk} from './Sync';
+import type {UpdateLogChunkV1} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
 
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
@@ -52,8 +52,9 @@ import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
-import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
+import {syncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
+import UpdateLogList from './UpdateLogList';
 import {
   budgetCompareFunctionForSort,
   getYNABErrorHandler,
@@ -126,11 +127,13 @@ function App() {
     useState<string>('');
   const labelPrefix = useDeferredValue(labelPrefixNotDeferred);
 
-  const [updateLogs, setUpdateLogs] = useState<UpdateLogChunk | null>(null);
+  const [updateLogsList, setUpdateLogsList] = useState<UpdateLogChunkV1[]>([]);
 
-  const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunk | null>(
-    null,
-  );
+  // const [updateLogs, setUpdateLogs] = useState<UpdateLogChunkV1 | null>(null);
+
+  // const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunkV1 | null>(
+  //   null,
+  // );
 
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
@@ -206,12 +209,6 @@ function App() {
   ).length;
 
   const successfulMatchesThatPassFiltersCount = finalizedMatchesFiltered.length;
-
-  const successfulSyncsCount: number | null =
-    updateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
-
-  const successfulUndosCount: number | null =
-    undoUpdateLogs?.logs.filter((log) => log.updateSucceeded).length ?? null;
 
   const onAuthError = useCallback((error: YNABErrorType) => {
     setYnabAuthError(error);
@@ -317,12 +314,12 @@ function App() {
           console.debug('📡 Accounts data received', accountsResponse);
           setAccounts(accountsResponse.data.accounts);
         } catch (error: unknown) {
-          const handler = getYNABErrorHandler(() => setYnabApi(null));
+          const handler = getYNABErrorHandler(onAuthError);
           handler(error);
         }
       })();
     }
-  }, [accounts, selectedBudgetID, ynabApi]);
+  }, [accounts, onAuthError, selectedBudgetID, ynabApi]);
 
   useEffect(() => {
     if (
@@ -344,12 +341,12 @@ function App() {
           console.debug('transactions:', transactions);
           setTransactions(transactions);
         } catch (error: unknown) {
-          const handler = getYNABErrorHandler(() => setYnabApi(null));
+          const handler = getYNABErrorHandler(onAuthError);
           handler(error);
         }
       })();
     }
-  }, [selectedAccountID, selectedBudgetID, transactions, ynabApi]);
+  }, [onAuthError, selectedAccountID, selectedBudgetID, transactions, ynabApi]);
 
   /////////////////////////////////////////////////
   // Functions
@@ -447,27 +444,29 @@ function App() {
                         </Button>
                       </Box>
 
-                      <Box>
-                        <Button
-                          // disabled={ynabApi != null}
-                          onClick={() => {
-                            if (ynabApi == null) {
-                              console.warn('ynabApi is null.');
-                              return;
-                            }
-                            ynabApi.user
-                              .getUser()
-                              .then((response) => {
-                                console.debug('[getUser] response', response);
-                              })
-                              .catch((error) => {
-                                console.debug('[getUser] error', error);
-                              });
-                          }}
-                          variant="solid">
-                          Test Connection
-                        </Button>
-                      </Box>
+                      {import.meta.env.DEV && (
+                        <Box>
+                          <Button
+                            // disabled={ynabApi != null}
+                            onClick={() => {
+                              if (ynabApi == null) {
+                                console.warn('ynabApi is null.');
+                                return;
+                              }
+                              ynabApi.user
+                                .getUser()
+                                .then((response) => {
+                                  console.debug('[getUser] response', response);
+                                })
+                                .catch((error) => {
+                                  console.debug('[getUser] error', error);
+                                });
+                            }}
+                            variant="solid">
+                            Test Connection
+                          </Button>
+                        </Box>
+                      )}
                     </Stack>
                   </Card>
 
@@ -638,62 +637,14 @@ function App() {
                           <Stack direction="row" spacing={2}>
                             <Button
                               disabled={
-                                ynabApi != null ||
-                                updateLogs == null ||
-                                updateLogs.logs.length === 0 ||
-                                undoUpdateLogs != null
-                              }
-                              onClick={() => {
-                                if (ynabApi == null) {
-                                  // TODO: Show the user these errors instead of failing silently
-                                  console.error(
-                                    '[Undo Sync labels] YNAB API not available',
-                                  );
-                                  return;
-                                }
-                                if (selectedBudgetID == null) {
-                                  console.error(
-                                    '[Undo Sync labels] No budget selected',
-                                  );
-                                  return;
-                                }
-                                if (updateLogs == null) {
-                                  console.error(
-                                    '[Undo Sync labels] No update logs available',
-                                  );
-                                  return;
-                                }
-
-                                undoSyncLabelsToYnab({
-                                  budgetID: selectedBudgetID,
-                                  updateLogChunk: updateLogs,
-                                  ynabAPI: ynabApi,
-                                })
-                                  .then((undoUpdateLogs) => {
-                                    setUndoUpdateLogs(undoUpdateLogs);
-                                  })
-                                  .catch((error) => {
-                                    console.error(
-                                      '📡❌ Error undoing the YNAB label sync.',
-                                      error,
-                                    );
-                                    getYNABErrorHandler(() => setYnabApi(null))(
-                                      error,
-                                    );
-                                  });
-                              }}
-                              variant="solid">
-                              UNDO Sync
-                            </Button>
-
-                            <Button
-                              disabled={
                                 ynabApi == null ||
                                 transactions == null ||
                                 transactions.length === 0 ||
                                 labels == null ||
                                 labels.length === 0 ||
-                                successfulMatchesCount === 0
+                                successfulMatchesCount === 0 ||
+                                selectedAccountID == null ||
+                                selectedBudgetID == null
                               }
                               onClick={() => {
                                 if (ynabApi == null) {
@@ -709,25 +660,31 @@ function App() {
                                   );
                                   return;
                                 }
-                                setUpdateLogs(null);
-                                setUndoUpdateLogs(null);
+                                if (selectedAccountID == null) {
+                                  console.error(
+                                    '[Sync labels] No account selected',
+                                  );
+                                  return;
+                                }
 
                                 syncLabelsToYnab({
+                                  accountID: selectedAccountID,
                                   budgetID: selectedBudgetID,
                                   finalizedMatches: finalizedMatchesFiltered,
                                   ynabAPI: ynabApi,
                                 })
                                   .then((updateLogs) => {
-                                    setUpdateLogs(updateLogs);
+                                    setUpdateLogsList((prev) => [
+                                      ...prev,
+                                      updateLogs,
+                                    ]);
                                   })
                                   .catch((error) => {
                                     console.error(
                                       '📡❌ Error syncing labels to YNAB.',
                                       error,
                                     );
-                                    getYNABErrorHandler(() => setYnabApi(null))(
-                                      error,
-                                    );
+                                    getYNABErrorHandler(onAuthError)(error);
                                   });
                               }}
                               variant="solid">
@@ -736,14 +693,12 @@ function App() {
                           </Stack>
 
                           <Button
-                            disabled={
-                              updateLogs == null && undoUpdateLogs == null
-                            }
+                            disabled={updateLogsList.length === 0}
                             onClick={() =>
                               initiateUserJSONDownload(
                                 getDateTimeString() +
                                   '__YNAB-Labeler-update-logs.json',
-                                [updateLogs, undoUpdateLogs].filter(Boolean),
+                                updateLogsList,
                                 {prettyFormat: true},
                               )
                             }>
@@ -848,19 +803,21 @@ function App() {
                       } labels will be synced based on filter criteria`}</Typography>
                     </Box>
 
-                    <Box sx={{textAlign: 'start'}}>
-                      <Typography>{`${
-                        successfulSyncsCount ?? UNDERSCORE_STRING
-                      }/${
-                        updateLogs?.logs.length ?? UNDERSCORE_STRING
-                      } YNAB transaction updates successful`}</Typography>
-
-                      <Typography>{`${
-                        successfulUndosCount ?? UNDERSCORE_STRING
-                      }/${
-                        undoUpdateLogs?.logs.length ?? UNDERSCORE_STRING
-                      } YNAB undo updates successful`}</Typography>
-                    </Box>
+                    {updateLogsList.length > 0 && (
+                      <Box mt={2}>
+                        <Typography level="title-md" sx={{mb: 1}}>
+                          Updates
+                        </Typography>
+                        <UpdateLogList
+                          onNewUpdateLogs={(newLog) =>
+                            setUpdateLogsList((prev) => [...prev, newLog])
+                          }
+                          onYNABAuthError={onAuthError}
+                          updateChunks={updateLogsList}
+                          ynabApi={ynabApi}
+                        />
+                      </Box>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>

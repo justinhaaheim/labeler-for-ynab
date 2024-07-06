@@ -4,6 +4,7 @@ import {v4 as uuidv4} from 'uuid';
 import * as ynab from 'ynab';
 
 import {getDateString} from './DateUtils';
+import isNonNullable from './isNonNullable';
 import {getParsedLabelsFromCsv, type ParsedLabelsTyped} from './LabelParser';
 import {
   AMAZON_PAYEE_NAME,
@@ -70,11 +71,10 @@ function getBestDatesInOrderFromStrings(
     .map((n) => (isNaN(n) ? null : new Date(n)))
     .map((d) => (isValidAmazonDate(d, closeDate) ? d : null));
 
-  const dateCandidatesWithPosition: DateCandidateWithPosition[] = (
-    dateCandidates
-      .map((d, i) => (d == null ? null : {date: d, originalIndex: i}))
-      .filter(Boolean) as DateCandidateWithPosition[]
-  ).filter((obj) => !isNaN(obj.date.valueOf()));
+  const dateCandidatesWithPosition: DateCandidateWithPosition[] = dateCandidates
+    .map((d, i) => (d == null ? null : {date: d, originalIndex: i}))
+    .filter(isNonNullable)
+    .filter((obj) => !isNaN(obj.date.valueOf()));
 
   // const nowDate = Date.now()
 
@@ -101,7 +101,7 @@ function getCurrencyAmountCandidatesFromStrings(
       }
       return null;
     })
-    .filter(Boolean) as CurrencyAmountCandidateWithPosition[];
+    .filter(isNonNullable);
 }
 
 function getTransactionDataFromAmazonPaymentsEntry(
@@ -291,7 +291,7 @@ export function getLabelsFromAmazonOrders(
       );
     });
 
-  return labelsFromOrdersNullable.filter(Boolean) as StandardTransactionType[];
+  return labelsFromOrdersNullable.filter(isNonNullable);
 }
 
 export function getLabelsFromCsv(csvText: string): StandardTransactionType[] {

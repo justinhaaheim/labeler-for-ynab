@@ -5,23 +5,37 @@ import type {
 } from './Matching';
 import type {API, SaveTransactionWithIdOrImportId} from 'ynab';
 
+import {v4 as uuidv4} from 'uuid';
+
 const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 const SPACER_STRING = ' ';
 export const SEPARATOR_BEFORE_LABEL = '##';
 
-type SyncConfig = {
+export const UPDATE_TYPE_PRETTY_STRING = {
+  sync: 'Sync',
+  'undo-sync': 'Undo Sync',
+} as const;
+
+export type UpdateType = keyof typeof UPDATE_TYPE_PRETTY_STRING;
+
+export const CURRENT_UPDATE_LOG_VERSION = 1 as const;
+
+export type UpdateLogChunkV1 = {
+  _updateLogVersion: typeof CURRENT_UPDATE_LOG_VERSION;
+  // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
+  accountID: string;
   budgetID: string;
-  finalizedMatches: LabelTransactionMatch[];
-  ynabAPI: API;
+  logs: UpdateLogEntryV1[];
+  revertSourceInfo?: {
+    timestamp: number;
+    updateID: string;
+  };
+  timestamp: number;
+  type: UpdateType;
+  updateID: string;
 };
 
-type UndoConfig = {
-  budgetID: string;
-  updateLogChunk: UpdateLogChunk;
-  ynabAPI: API;
-};
-
-export type UpdateLogEntry = {
+export type UpdateLogEntryV1 = {
   id: string;
   label: string;
 
@@ -31,27 +45,36 @@ export type UpdateLogEntry = {
   method: 'append-label' | 'remove-label';
   newMemo: string;
   previousMemo: string | undefined;
-  updateSucceeded?: boolean;
+  updateSucceeded: boolean;
 };
 
-export type UpdateLogChunk = {
-  logs: UpdateLogEntry[];
-  timestamp: number;
-  type: 'sync' | 'undo-sync';
-};
+type UpdateLogEntryInProgressV1 = Omit<UpdateLogEntryV1, 'updateSucceeded'>;
 
 function getLabelWithSeparator(label: StandardTransactionType): string {
   return SEPARATOR_BEFORE_LABEL + SPACER_STRING + label.memo;
 }
 
+type SyncConfig = {
+  accountID: string;
+  budgetID: string;
+  finalizedMatches: LabelTransactionMatch[];
+  ynabAPI: API;
+};
+
+type UndoConfig = {
+  updateLogChunk: UpdateLogChunkV1;
+  ynabAPI: API;
+};
+
 export async function syncLabelsToYnab({
+  accountID,
   budgetID,
   ynabAPI,
   finalizedMatches,
-}: SyncConfig): Promise<UpdateLogChunk> {
+}: SyncConfig): Promise<UpdateLogChunkV1> {
   console.log('syncLabelsToYnab');
 
-  let updateLogs: UpdateLogEntry[] = [];
+  let updateLogs: UpdateLogEntryInProgressV1[] = [];
 
   const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] = (
     finalizedMatches.filter(
@@ -125,24 +148,33 @@ export async function syncLabelsToYnab({
     saveTransactionResponse.data.transaction_ids,
   );
 
-  updateLogs = updateLogs.map((log) => ({
+  const updateLogsFinalized: UpdateLogEntryV1[] = updateLogs.map((log) => ({
     ...log,
     updateSucceeded: successfulTransactionsSet.has(log.id),
   }));
 
   console.debug('saveTransactionResponse', saveTransactionResponse);
 
-  return {logs: updateLogs, timestamp: Date.now(), type: 'sync'};
+  return {
+    _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
+    accountID,
+    budgetID,
+    logs: updateLogsFinalized,
+    timestamp: Date.now(),
+    type: 'sync',
+    updateID: uuidv4(),
+  };
 }
 
 export async function undoSyncLabelsToYnab({
-  budgetID,
   ynabAPI,
   updateLogChunk,
-}: UndoConfig): Promise<UpdateLogChunk> {
+}: UndoConfig): Promise<UpdateLogChunkV1> {
   console.log('undoSyncLabelsToYnab');
 
-  let undoUpdateLogs: UpdateLogEntry[] = [];
+  const {accountID, budgetID} = updateLogChunk;
+
+  let undoUpdateLogs: UpdateLogEntryInProgressV1[] = [];
 
   const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] =
     updateLogChunk.logs.map((log) => {
@@ -180,7 +212,7 @@ export async function undoSyncLabelsToYnab({
     saveTransactionResponse.data.transaction_ids,
   );
 
-  undoUpdateLogs = undoUpdateLogs.map((log) => ({
+  const undoUpdateLogsFinalized = undoUpdateLogs.map((log) => ({
     ...log,
     updateSucceeded: successfulTransactionsSet.has(log.id),
   }));
@@ -191,8 +223,16 @@ export async function undoSyncLabelsToYnab({
   );
 
   return {
-    logs: undoUpdateLogs,
+    _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
+    accountID,
+    budgetID,
+    logs: undoUpdateLogsFinalized,
+    revertSourceInfo: {
+      timestamp: updateLogChunk.timestamp,
+      updateID: updateLogChunk.updateID,
+    },
     timestamp: Date.now(),
     type: 'undo-sync',
+    updateID: uuidv4(),
   };
 }

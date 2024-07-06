@@ -3,6 +3,8 @@ import type {TransactionDetail} from 'ynab';
 
 import * as ynab from 'ynab';
 
+import isNonNullable from './isNonNullable';
+
 export type MatchCandidate = {
   candidates: TransactionDetail[];
   label: StandardTransactionType;
@@ -75,7 +77,7 @@ export function getMatchCandidatesForLabel(
         );
       return {...ynabTransaction, dateDiff};
     })
-    .filter(Boolean) as TransactionDetailWithDateDiff[];
+    .filter(isNonNullable);
 
   shouldLog &&
     console.debug('[getMatchCandidatesForLabel] candidates:', candidates);
