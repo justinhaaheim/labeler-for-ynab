@@ -642,7 +642,7 @@ function App() {
                           <Stack direction="row" spacing={2}>
                             <Button
                               disabled={
-                                ynabApi != null ||
+                                ynabApi == null ||
                                 updateLogs == null ||
                                 updateLogs.logs.length === 0 ||
                                 undoUpdateLogs != null

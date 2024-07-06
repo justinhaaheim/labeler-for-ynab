@@ -40,6 +40,13 @@ export type UpdateLogEntryV1 = {
 
 type UpdateLogEntryInProgressV1 = Omit<UpdateLogEntryV1, 'updateSucceeded'>;
 
+export const UPDATE_TYPE_PRETTY_STRING = {
+  sync: 'Sync',
+  'undo-sync': 'Undo Sync',
+} as const;
+
+export type UpdateType = keyof typeof UPDATE_TYPE_PRETTY_STRING;
+
 export type UpdateLogChunkV1 = {
   // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
   accountID: string;
@@ -47,7 +54,7 @@ export type UpdateLogChunkV1 = {
   id: string;
   logs: UpdateLogEntryV1[];
   timestamp: number;
-  type: 'sync' | 'undo-sync';
+  type: UpdateType;
 };
 
 function getLabelWithSeparator(label: StandardTransactionType): string {
