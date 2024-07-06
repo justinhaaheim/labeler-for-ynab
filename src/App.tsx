@@ -46,6 +46,7 @@ import {
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
+import isNonNullable from './isNonNullable';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
@@ -762,7 +763,9 @@ function App() {
                               initiateUserJSONDownload(
                                 getDateTimeString() +
                                   '__YNAB-Labeler-update-logs.json',
-                                [updateLogs, undoUpdateLogs].filter(Boolean),
+                                [updateLogs, undoUpdateLogs].filter(
+                                  isNonNullable,
+                                ),
                                 {prettyFormat: true},
                               )
                             }>
@@ -885,7 +888,7 @@ function App() {
                       updateChunks={[
                         updateLogs ?? null,
                         undoUpdateLogs ?? null,
-                      ].filter(Boolean)}
+                      ].filter(isNonNullable)}
                     />
                   </CardContent>
                 </Card>

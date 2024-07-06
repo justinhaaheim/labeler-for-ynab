@@ -9,7 +9,7 @@ type Props = {
 export default function UpdateLogList({updateChunks}: Props) {
   return (
     <List>
-      {updateChunks.map((chunk, i) => {
+      {updateChunks.map((chunk) => {
         return <ListItem key={chunk.id}>{chunk.timestamp}</ListItem>;
       })}
     </List>
