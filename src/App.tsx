@@ -54,6 +54,7 @@ import {
 } from './Matching';
 import {syncLabelsToYnab, undoSyncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
+import UpdateLogList from './UpdateLogList';
 import {
   budgetCompareFunctionForSort,
   getYNABErrorHandler,
@@ -879,6 +880,13 @@ function App() {
                         undoUpdateLogs?.logs.length ?? UNDERSCORE_STRING
                       } YNAB undo updates successful`}</Typography>
                     </Box>
+
+                    <UpdateLogList
+                      updateChunks={[
+                        updateLogs ?? null,
+                        undoUpdateLogs ?? null,
+                      ].filter(Boolean)}
+                    />
                   </CardContent>
                 </Card>
               </Grid>

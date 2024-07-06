@@ -5,6 +5,8 @@ import type {
 } from './Matching';
 import type {API, SaveTransactionWithIdOrImportId} from 'ynab';
 
+import {v4 as uuidv4} from 'uuid';
+
 const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 const SPACER_STRING = ' ';
 export const SEPARATOR_BEFORE_LABEL = '##';
@@ -42,6 +44,7 @@ export type UpdateLogChunkV1 = {
   // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
   accountID: string;
   budgetID: string;
+  id: string;
   logs: UpdateLogEntryV1[];
   timestamp: number;
   type: 'sync' | 'undo-sync';
@@ -143,6 +146,7 @@ export async function syncLabelsToYnab({
   return {
     accountID,
     budgetID,
+    id: uuidv4(),
     logs: updateLogsFinalized,
     timestamp: Date.now(),
     type: 'sync',
@@ -208,6 +212,7 @@ export async function undoSyncLabelsToYnab({
   return {
     accountID,
     budgetID,
+    id: uuidv4(),
     logs: undoUpdateLogsFinalized,
     timestamp: Date.now(),
     type: 'undo-sync',
