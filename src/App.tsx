@@ -730,7 +730,12 @@ function App() {
                   color="primary"
                   invertedColors={mode === 'dark'}
                   size="lg"
-                  sx={{width: 'fit-content'}}
+                  sx={{
+                    left: '1rem',
+                    position: 'sticky',
+                    top: '1rem',
+                    width: 'fit-content',
+                  }}
                   variant={mode === 'light' ? 'soft' : 'solid'}>
                   <CardContent>
                     <Typography level="title-lg" sx={{marginBottom: 2}}>
