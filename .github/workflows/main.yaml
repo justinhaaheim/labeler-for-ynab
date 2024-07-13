@@ -47,7 +47,7 @@ jobs:
         run: npm run ts-check
 
       - name: Check jest tests
-        run: npm run jest
+        run: npm run test
 
       - name: Check for lint errors
         run: npm run lint
