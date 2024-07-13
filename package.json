@@ -17,9 +17,10 @@
     "prettier-check": "prettier --check .",
     "prettier": "prettier --write .",
     "preview": "vite preview",
-    "signal:serial": "npm run ts-check && npm run lint && npm run prettier-check",
-    "signal": "concurrently --names \"TS,LINT,PRETTIER\" -c \"bgBlack.bold,bgRed.bold,bgCyan.bold\" \"npm run ts-check\" \"npm run lint\" \"npm run prettier-check\"",
+    "signal:serial": "npm run ts-check && npm run test-silent && npm run lint && npm run prettier-check",
+    "signal": "concurrently --names \"TS,JEST,LINT,PRETTIER\" -c \"bgBlack.bold,bgMagenta.bold,bgRed.bold,bgCyan.bold\" \"npm run ts-check\" \"npm run test-silent\" \"npm run lint\" \"npm run prettier-check\"",
     "test": "jest",
+    "test-silent": "jest --silent",
     "ts-check": "tsc --noEmit",
     "ts-check-masked": "npm run ts-check",
     "prepare": "husky install"

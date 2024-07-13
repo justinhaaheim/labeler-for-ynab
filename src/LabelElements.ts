@@ -11,10 +11,6 @@ import repeatString from './repeatString';
  */
 export const ON_TRUNCATE_TYPES = ['omit', 'truncate'] as const;
 
-export const SPACE = ' ';
-const DEFAULT_GAP_LENGTH = 1;
-const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
-
 export interface LabelElement {
   // Whether or not this element should shrink if the total label is over the limit. Right now I'm just using 1 and 0, and unlike flexbox I'm not evenly applying the shrinking -- it's applied from the end back to the start
   flexShrink: number;
@@ -25,6 +21,22 @@ export interface LabelElement {
   // The actual string to include in the label
   value: string;
 }
+
+type ElementListTransform = (
+  elements: LabelElement[],
+  config: {lengthLimit: number},
+) => LabelElement[];
+
+type RenderLabelElementsConfig = {
+  // the elementListTransform is automatically applied to every remaining item
+  elementListTransform?: ElementListTransform;
+  lengthLimit: number;
+  mode: 'force-truncate' | 'shrink';
+};
+
+export const SPACE = ' ';
+const DEFAULT_GAP_LENGTH = 1;
+const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
 
 function renderLabelNoLimit(elements: LabelElement[]): string {
   return elements
@@ -39,18 +51,6 @@ function renderLabelNoLimit(elements: LabelElement[]): string {
     })
     .join('');
 }
-
-type ElementListTransform = (
-  elements: LabelElement[],
-  config: {lengthLimit: number},
-) => LabelElement[];
-
-type RenderLabelElementsConfig = {
-  // the elementListTransform is automatically applied to every remaining item
-  elementListTransform?: ElementListTransform;
-  lengthLimit: number;
-  mode: 'force-truncate' | 'shrink';
-};
 
 function renderLabelElementsWithStrategy(
   elements: LabelElement[],
@@ -125,78 +125,6 @@ function renderLabelElementsWithStrategy(
       : currentElementsInOrder;
 
   return currentElementsInOrderTransformed;
-
-  // console.error(
-  //   '🏷️ [renderLabelElementsWithStrategy] Unable to limit characters for elements',
-  //   {
-  //     elementListTransform: elementListTransform != null,
-  //     elements,
-  //     lengthLimit,
-  //     mode,
-  //   },
-  // );
-  // throw new Error(
-  //   '🏷️ [renderLabelElementsWithStrategy] Unable to limit characters for elements',
-  // );
-
-  /**
-   * The first way we reduce string length is by truncating any strings with
-   * a positive flexShrink, starting from the end, until we're under the limit
-   */
-  // console.debug('🏷️ [renderLabel] Shrinking elements...');
-  // const nonEmptyElements = elements.filter((e) => e.value.length > 0);
-  // const shrunkRenderElements = elements
-  //   .slice()
-  //   .reverse()
-  //   .map((e) => {
-  //     if (e.value.length === 0) {
-  //       // This element will not contribute any length
-  //       return e;
-  //     }
-
-  //     if (e.flexShrink === 0) {
-  //       return e;
-  //     }
-
-  //     if (charactersToReduce <= 0) {
-  //       return e;
-  //     }
-
-  //     // It SHOULD always be true that (unless I add some other whitespace handling)
-  //     const elementMaxLength = e.value.length + DEFAULT_GAP_LENGTH;
-
-  //     /**
-  //      * NOTE: It's actually possible in most cases to reduce by one additional character.
-  //      * If value is '' then we won't add a gap for this element either
-  //      */
-  //     const charactersToReduceFromThisElement = Math.min(
-  //       charactersToReduce,
-  //       elementMaxLength,
-  //     );
-  //     const newValue = e.value.slice(0, -charactersToReduceFromThisElement);
-  //     // NOTE: this is still not totally accurate. If e.value = "hi" and
-  //     // charactersToReduce = 2, newValue will be "", but the actual amount of
-  //     // characters reduced will be 3, not 2
-  //     charactersToReduce -= charactersToReduceFromThisElement;
-
-  //     console.debug(`🏷️ [renderLabel] Shrinking "${e.value}" to "${newValue}"`);
-  //     if (
-  //       charactersToReduceFromThisElement !==
-  //       e.value.length - newValue.length
-  //     ) {
-  //       console.warn('🏷️ [renderLabel] WTF - these should be the same', {
-  //         charactersToReduceFromThisElement,
-  //         lengthDifference: e.value.length - newValue.length,
-  //       });
-  //     }
-
-  //     return {
-  //       ...e,
-  //       value: newValue,
-  //     };
-  //   })
-  //   .slice()
-  //   .reverse();
 }
 
 export function renderLabel(
@@ -271,46 +199,4 @@ export function renderLabel(
   }
 
   return forceTruncatedRender;
-
-  // const forceTruncatedRenderElements = shrunkRenderElements
-  //   .slice()
-  //   .reverse()
-  //   .map((e) => {
-  //     if (charactersToReduce <= 0) {
-  //       return e;
-  //     }
-
-  //     console.debug('🏷️ [renderLabel] Force-truncating element:', {
-  //       e,
-  //       elements,
-  //     });
-
-  //     // Note: this can be more than charactersToReduceTracker when an element is to be omitted
-  //     const charactersToReduceFromThisElement =
-  //       e.onTruncate === 'omit'
-  //         ? e.value.length
-  //         : Math.min(charactersToReduce, e.value.length);
-  //     const newValue = e.value.slice(0, -charactersToReduceFromThisElement);
-
-  //     charactersToReduce = Math.max(
-  //       0,
-  //       charactersToReduce - charactersToReduceFromThisElement,
-  //     );
-
-  //     return {
-  //       ...e,
-  //       value: newValue,
-  //     };
-  //   })
-  //   .slice()
-  //   .reverse();
-  // const forceTruncatedRender = renderLabelNoLimit(forceTruncatedRenderElements);
-
-  // if (charactersToReduce > 0) {
-  //   throw new Error(
-  //     '[renderLabel] label too long even after force truncating elements.',
-  //   );
-  // }
-
-  // return forceTruncatedRender;
 }
