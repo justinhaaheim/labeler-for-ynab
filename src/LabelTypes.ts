@@ -29,13 +29,17 @@ export type AmazonOrdersCsvImportType = {
 //   string
 // >;
 
-export type StandardTransactionType = {
+export interface StandardTransactionType {
   amount: number;
   date: string;
   id: string;
   memo: string;
   payee: string;
-};
+}
+
+export interface AmazonTransactionType extends StandardTransactionType {
+  orderURL: string | null;
+}
 
 export const YNAB_CSV_IMPORT_KEYS = [
   'amount',

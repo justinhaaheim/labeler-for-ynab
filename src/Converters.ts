@@ -172,6 +172,11 @@ function getDataFromAmazonPaymentsString(
   return transactionData;
 }
 
+/**
+ * This is the primary function that takes Amazon DATA and creates labels out of it
+ * @param orders
+ * @returns
+ */
 export function getLabelsFromAmazonOrders(
   orders: AmazonOrdersCsvImportType[],
 ): StandardTransactionType[] {
