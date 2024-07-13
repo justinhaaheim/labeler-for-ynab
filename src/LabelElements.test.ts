@@ -2,18 +2,18 @@ import {type LabelElement, renderLabel} from './LabelElements';
 
 describe('renderLabel', () => {
   const baseElements: LabelElement[] = [
-    {flexShrink: 0, onTruncate: 'truncate', value: 'what is this?'}, // original memo
-    {flexShrink: 0, onTruncate: 'omit', value: '##'}, // divider
-    {flexShrink: 0, onTruncate: 'omit', value: '@'}, // prefix
-    {flexShrink: 0, onTruncate: 'omit', value: '(charge 1 of 3)'}, // transaction info
+    {flexShrink: 0, onOverflow: 'truncate', value: 'what is this?'}, // original memo
+    {flexShrink: 0, onOverflow: 'omit', value: '##'}, // divider
+    {flexShrink: 0, onOverflow: 'omit', value: '@'}, // prefix
+    {flexShrink: 0, onOverflow: 'omit', value: '(charge 1 of 3)'}, // transaction info
     {
       flexShrink: 1,
-      onTruncate: 'truncate',
+      onOverflow: 'truncate',
       value: 'Anker 4-port charger',
     }, // Item name
     {
       flexShrink: 0,
-      onTruncate: 'omit',
+      onOverflow: 'omit',
       value: 'https://www.example.com/',
     }, // Order URL
   ];
@@ -49,7 +49,7 @@ describe('renderLabel', () => {
       'what is this? ## @ (charge 1 of 3) Anker 4-port charger',
     );
 
-    // Once we've taken out an element marked with onTruncate: 'omit', try and meet the rest
+    // Once we've taken out an element marked with onOverflow: 'omit', try and meet the rest
     // of the limit with shrinking
     expect(renderLabel(baseElements, 45)).toBe(
       'what is this? ## @ (charge 1 of 3) Anker 4-po',

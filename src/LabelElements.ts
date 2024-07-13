@@ -16,7 +16,7 @@ export interface LabelElement {
   flexShrink: number;
 
   // could also be onOverflow
-  onTruncate: (typeof ON_TRUNCATE_TYPES)[number];
+  onOverflow: (typeof ON_TRUNCATE_TYPES)[number];
 
   // The actual string to include in the label
   value: string;
@@ -111,7 +111,7 @@ function renderLabelElementsWithStrategy(
 
     if (mode === 'force-truncate') {
       const newValue =
-        e.onTruncate === 'omit' ? '' : e.value.slice(0, -charsToReduce);
+        e.onOverflow === 'omit' ? '' : e.value.slice(0, -charsToReduce);
       newElementsReversed[i] = {...e, value: newValue};
       continue;
     }
@@ -163,7 +163,7 @@ export function renderLabel(
 
   /**
    * If we are still over the limit we need to start "force" truncating the items,
-   * starting from the end, according to their 'onTruncate' prop
+   * starting from the end, according to their 'onOverflow' prop
    *
    * But we should do this starting with the original elements array, since we
    * might be able to regain some elements that were shrunk if we have to remove an
