@@ -23,6 +23,26 @@ jobs:
       - name: Install project dependencies
         run: npm ci
 
+      - name: Build the project
+        run: npm run build
+
+  check-signals:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install project dependencies
+        run: npm ci
+
       - name: Check for typescript errors
         run: npm run ts-check
 
@@ -34,10 +54,3 @@ jobs:
 
       - name: Check for prettier errors
         run: npm run prettier-check
-
-      - name: Build the project
-        run: npm run build
-
-      # - name: Ensure the project starts without error
-      #   run: yarn run start
-      #   wait-on: 'http://localhost:3001'
