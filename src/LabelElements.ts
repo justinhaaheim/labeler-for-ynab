@@ -1,19 +1,24 @@
-export const LABEL_TYPES = ['original-memo', 'divider', 'generic-element'];
+// export const LABEL_TYPES = ['original-memo', 'divider', 'generic-element'];
 
-// export type LabelTypes;
-
+/**
+ * omit - omit the element entirely if it cannot be included in its entirety
+ * truncate - truncate the element if it cannot be included in its entirety
+ */
 export const ON_TRUNCATE_TYPES = ['omit', 'truncate'] as const;
 
 export const SPACE = ' ';
 
 interface LabelElement {
+  // Whether or not this element should shrink if the total label is over the limit. Right now I'm just using 1 and 0
   flexShrink: number;
 
+  // # of spaces to add at the end. I may end up setting a default of 1
   marginEnd: number;
 
   // could also be onOverflow
   onTruncate: (typeof ON_TRUNCATE_TYPES)[number];
 
+  // The actual string to include in the label
   value: string;
 }
 
@@ -34,7 +39,7 @@ const example: LabelElement[] = [
     onTruncate: 'omit',
     value:
       'https://www.amazon.com/gp/your-account/order-details/ref=ppx_yo_dt_b_order_details_o08?ie=UTF8&orderID=113-7378406-3016269',
-  }, // Item name
+  }, // Order URL
 ];
 
 export function repeatString(str: string, nTimes: number): string {
@@ -105,17 +110,6 @@ export function renderLabel(
       if (charactersToReduceTracker <= 0) {
         return e;
       }
-
-      // if (e.onTruncate === 'omit') {
-      //   charactersToReduceTracker = Math.max(
-      //     0,
-      //     charactersToReduceTracker - e.value.length,
-      //   );
-      //   return {
-      //     ...e,
-      //     value: '',
-      //   };
-      // }
 
       console.debug('🏷️ [renderLabel] Force-truncating element:', {
         e,
