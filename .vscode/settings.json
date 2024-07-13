@@ -29,6 +29,9 @@
       "source.fixAll.format"
     ]
   },
+  "[yaml]": {
+    "editor.codeActionsOnSave": ["source.fixAll.format"]
+  },
   // "typescript.tsdk": "node_modules/typescript/lib",
   "search.exclude": {
     "**/.yarn": true
