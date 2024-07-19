@@ -48,6 +48,7 @@ import {
   convertYnabTransactionToStandardTransactionWithLabelElements,
 } from './Converters';
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
+import FinalizedMatchesDataGrid from './FinalizedMatchesDataGrid';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import {
@@ -854,6 +855,27 @@ function App() {
                             ),
                           )}
                       />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2}>
+                    <Grid xs={12}>
+                      <Typography level="h3" sx={{mb: 1}}>
+                        Finalized Matches
+                      </Typography>
+
+                      <Typography level="body-xs" sx={{mb: 3}}>
+                        {
+                          'This table shows the labels you provided (left) and the matching YNAB transaction (abbreviated TXN; right)'
+                        }
+                      </Typography>
+
+                      <Sheet>
+                        <FinalizedMatchesDataGrid
+                          finalizedMatches={finalizedMatchesFiltered}
+                          size="sm"
+                        />
+                      </Sheet>
                     </Grid>
                   </Grid>
 
