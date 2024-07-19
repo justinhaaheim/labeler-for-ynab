@@ -1,3 +1,5 @@
+import type {LabelElement} from './LabelElements';
+
 // TODO: Support other names in other locales?
 export const AMAZON_PAYEE_NAME = 'Amazon';
 
@@ -37,7 +39,16 @@ export interface StandardTransactionType {
   payee: string;
 }
 
-export interface AmazonTransactionType extends StandardTransactionType {
+export interface StandardTransactionTypeWithLabelElements {
+  amount: number;
+  date: string;
+  id: string;
+  memo: LabelElement[];
+  payee: string;
+}
+
+export interface AmazonTransactionType
+  extends StandardTransactionTypeWithLabelElements {
   orderURL: string | null;
 }
 

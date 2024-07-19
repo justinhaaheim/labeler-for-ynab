@@ -1,15 +1,10 @@
-import type {StandardTransactionType} from './LabelTypes';
-import type {
-  LabelTransactionMatch,
-  LabelTransactionMatchNonNullable,
-} from './Matching';
+import type {LabelElement} from './LabelElements';
+import type {LabelTransactionMatchFinalized} from './Matching';
 import type {API, SaveTransactionWithIdOrImportId} from 'ynab';
 
 import {v4 as uuidv4} from 'uuid';
 
-const MAXIMUM_YNAB_MEMO_LENGTH = 200;
-const SPACER_STRING = ' ';
-export const SEPARATOR_BEFORE_LABEL = '##';
+export const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 
 export const UPDATE_TYPE_PRETTY_STRING = {
   sync: 'Sync',
@@ -37,10 +32,8 @@ export type UpdateLogChunkV1 = {
 
 export type UpdateLogEntryV1 = {
   id: string;
-  label: string;
 
-  // labelSource is the original label before any separators are added
-  labelSource: string;
+  label: LabelElement[];
 
   method: 'append-label' | 'remove-label';
   newMemo: string;
@@ -50,14 +43,10 @@ export type UpdateLogEntryV1 = {
 
 type UpdateLogEntryInProgressV1 = Omit<UpdateLogEntryV1, 'updateSucceeded'>;
 
-function getLabelWithSeparator(label: StandardTransactionType): string {
-  return SEPARATOR_BEFORE_LABEL + SPACER_STRING + label.memo;
-}
-
 type SyncConfig = {
   accountID: string;
   budgetID: string;
-  finalizedMatches: LabelTransactionMatch[];
+  finalizedMatches: LabelTransactionMatchFinalized[];
   ynabAPI: API;
 };
 
@@ -76,61 +65,32 @@ export async function syncLabelsToYnab({
 
   let updateLogs: UpdateLogEntryInProgressV1[] = [];
 
-  const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] = (
-    finalizedMatches.filter(
-      (m) => m.transactionMatch != null,
-    ) as LabelTransactionMatchNonNullable[]
-  ).map((match) => {
-    const ynabTransactionToUpdate = match.transactionMatch;
+  const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] =
+    finalizedMatches.map((match) => {
+      const ynabTransactionToUpdate = match.transactionMatch;
 
-    // If the previous memo is just whitespace then trim it. If not, leave everything alone and simply append.
-    const previousMemoTrimmed =
-      (ynabTransactionToUpdate.memo ?? '').trim().length === 0
-        ? ''
-        : ynabTransactionToUpdate.memo ?? '';
+      //
+      const newMemo = match.newMemo;
 
-    // If there's already a space at the end of the memo, don't add an additional space
-    // Or if the previous memo is an empty string, don't add any space before our label
-    const previousMemoWithSpacer =
-      previousMemoTrimmed.length === 0 ||
-      previousMemoTrimmed.slice(-1) === SPACER_STRING
-        ? previousMemoTrimmed
-        : previousMemoTrimmed + SPACER_STRING;
+      console.debug({
+        newMemo,
+        newMemoLength: newMemo.length,
+      });
 
-    const charactersRemainingForLabel =
-      MAXIMUM_YNAB_MEMO_LENGTH - previousMemoWithSpacer.length;
+      updateLogs.push({
+        id: ynabTransactionToUpdate.id,
+        label: match.label.memo,
+        method: 'append-label',
+        newMemo: newMemo,
+        // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
+        previousMemo: ynabTransactionToUpdate.memo,
+      });
 
-    // This should include any space or separator between the original memo and the label
-    const labelToAppend = getLabelWithSeparator(match.label).slice(
-      0,
-      charactersRemainingForLabel,
-    );
-    const newMemo = previousMemoWithSpacer + labelToAppend;
-
-    console.debug({
-      lostCharacters: Math.max(
-        match.label.memo.length - charactersRemainingForLabel,
-        0,
-      ),
-      newMemo,
-      newMemoLength: newMemo.length,
+      return {
+        id: ynabTransactionToUpdate.id,
+        memo: newMemo,
+      };
     });
-
-    updateLogs.push({
-      id: ynabTransactionToUpdate.id,
-      label: labelToAppend,
-      labelSource: match.label.memo,
-      method: 'append-label',
-      newMemo,
-      // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
-      previousMemo: ynabTransactionToUpdate.memo,
-    });
-
-    return {
-      id: ynabTransactionToUpdate.id,
-      memo: newMemo,
-    };
-  });
 
   console.debug('saveTransactionsToExecute', saveTransactionsToExecute);
   console.debug('updateLogs', updateLogs);
@@ -181,7 +141,6 @@ export async function undoSyncLabelsToYnab({
       undoUpdateLogs.push({
         id: log.id,
         label: log.label,
-        labelSource: log.labelSource,
         method: 'remove-label',
         newMemo: log.previousMemo ?? '',
         previousMemo: log.newMemo,

@@ -1,5 +1,12 @@
 import type {ParsedLabelsTyped} from './LabelParser';
-import type {StandardTransactionType} from './LabelTypes';
+import type {
+  StandardTransactionType,
+  StandardTransactionTypeWithLabelElements,
+} from './LabelTypes';
+import type {
+  LabelTransactionMatchFinalized,
+  LabelTransactionMatchNonNullable,
+} from './Matching';
 import type {UpdateLogChunkV1} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
 
@@ -46,6 +53,7 @@ import {
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
+import {renderFinalizedMatches} from './LabelElements';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
@@ -108,7 +116,9 @@ function App() {
   >(null);
 
   const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);
-  const labelsWithoutPrefix = useMemo<StandardTransactionType[] | null>(() => {
+  const labelsWithLabelElements = useMemo<
+    StandardTransactionTypeWithLabelElements[] | null
+  >(() => {
     if (labelData != null) {
       // Take the raw data that was parsed and determine the best label from it
       return convertParsedLabelsToStandardTransaction(labelData);
@@ -138,24 +148,12 @@ function App() {
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
 
-  const labels: StandardTransactionType[] | null = useMemo(
-    () =>
-      labelsWithoutPrefix?.map((label) => ({
-        ...label,
-        memo:
-          labelPrefix.trim().length > 0
-            ? labelPrefix + LABEL_PREFIX_SEPARATOR + label.memo
-            : label.memo,
-      })) ?? null,
-    [labelPrefix, labelsWithoutPrefix],
-  );
-
   const matchCandidates = useMemo(
     () =>
-      labels == null || transactions == null
+      labelsWithLabelElements == null || transactions == null
         ? null
-        : getMatchCandidatesForAllLabels(labels, transactions),
-    [labels, transactions],
+        : getMatchCandidatesForAllLabels(labelsWithLabelElements, transactions),
+    [labelsWithLabelElements, transactions],
   );
 
   const finalizedMatches = useMemo(
@@ -164,9 +162,9 @@ function App() {
     [matchCandidates],
   );
 
-  const finalizedMatchesFiltered = useMemo(
-    () =>
-      finalizedMatches.filter((match) => {
+  const finalizedMatchesFiltered: LabelTransactionMatchFinalized[] =
+    useMemo(() => {
+      const matchesFiltered = finalizedMatches.filter((match) => {
         if (match.transactionMatch == null) {
           return false;
         }
@@ -195,14 +193,20 @@ function App() {
         }
 
         return true;
-      }),
-    [
+      });
+
+      // TODO: Write a function to assert the nonNullable type
+      return renderFinalizedMatches({
+        finalizedMatches: matchesFiltered as LabelTransactionMatchNonNullable[],
+        prefix: labelPrefix,
+      });
+    }, [
       finalizedMatches,
+      labelPrefix,
       labelSyncFilterConfig.omitAlreadyCategorized,
       labelSyncFilterConfig.omitNonemptyMemo,
       labelSyncFilterConfig.omitReconciled,
-    ],
-  );
+    ]);
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
@@ -557,7 +561,7 @@ function App() {
 
                   <InputFileUpload
                     cardStyle={cardStyle}
-                    labelCount={labels?.length ?? null}
+                    labelCount={labelsWithLabelElements?.length ?? null}
                     onLabelPrefixChange={setLabelPrefixNotDeferred}
                     onNewLabelData={setLabelData}
                   />
@@ -640,8 +644,8 @@ function App() {
                                 ynabApi == null ||
                                 transactions == null ||
                                 transactions.length === 0 ||
-                                labels == null ||
-                                labels.length === 0 ||
+                                labelsWithLabelElements == null ||
+                                labelsWithLabelElements.length === 0 ||
                                 successfulMatchesCount === 0 ||
                                 selectedAccountID == null ||
                                 selectedBudgetID == null
@@ -774,7 +778,7 @@ function App() {
 
                     <Box sx={{mb: 2, textAlign: 'start'}}>
                       <Typography>{`${
-                        labels?.length ?? UNDERSCORE_STRING
+                        labelsWithLabelElements?.length ?? UNDERSCORE_STRING
                       } labels loaded`}</Typography>
 
                       <Typography>{`${
@@ -786,13 +790,15 @@ function App() {
                           ? UNDERSCORE_STRING
                           : successfulMatchesCount
                       }/${
-                        labels?.length ?? UNDERSCORE_STRING
+                        labelsWithLabelElements?.length ?? UNDERSCORE_STRING
                       } labels matched to a YNAB transaction`}</Typography>
 
                       <Typography>{`${
-                        matchCandidates == null || labels == null
+                        matchCandidates == null ||
+                        labelsWithLabelElements == null
                           ? UNDERSCORE_STRING
-                          : labels.length - successfulMatchesCount
+                          : labelsWithLabelElements.length -
+                            successfulMatchesCount
                       } labels had no match`}</Typography>
                     </Box>
 
@@ -872,11 +878,14 @@ function App() {
                       </Typography>
 
                       <Typography>{`${
-                        labels?.length ?? 0
+                        labelsWithLabelElements?.length ?? 0
                       } labels loaded`}</Typography>
 
-                      {labels != null && (
-                        <TransactionDataGrid size="sm" transactions={labels} />
+                      {labelsWithLabelElements != null && (
+                        <TransactionDataGrid
+                          size="sm"
+                          transactions={labelsWithLabelElements}
+                        />
                       )}
                     </Grid>
                   </Grid>

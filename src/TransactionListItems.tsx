@@ -1,4 +1,4 @@
-import type {StandardTransactionType} from './LabelTypes';
+import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 
 import {Typography} from '@mui/joy';
 import Divider from '@mui/joy/Divider';
@@ -9,7 +9,7 @@ import React from 'react';
 import getFormattedAmount from './getFormattedAmount';
 
 type Props = {
-  transactions: StandardTransactionType[];
+  transactions: StandardTransactionTypeWithLabelElements[];
 };
 
 export default function TransactionListItems({

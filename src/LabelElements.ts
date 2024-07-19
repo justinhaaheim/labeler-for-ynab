@@ -1,4 +1,10 @@
+import type {
+  LabelTransactionMatchFinalized,
+  LabelTransactionMatchNonNullable,
+} from './Matching';
+
 import repeatString from './repeatString';
+import {MAXIMUM_YNAB_MEMO_LENGTH} from './Sync';
 
 /**
  * TODO: Handle what happens if two spaces are next to each other after
@@ -9,14 +15,14 @@ import repeatString from './repeatString';
  * omit - omit the element entirely if it cannot be included in its entirety
  * truncate - truncate the element if it cannot be included in its entirety
  */
-export const ON_TRUNCATE_TYPES = ['omit', 'truncate'] as const;
+export const ON_TRUNCATE_TYPES = {omit: 'omit', truncate: 'truncate'} as const;
 
 export interface LabelElement {
   // Whether or not this element should shrink if the total label is over the limit. Right now I'm just using 1 and 0, and unlike flexbox I'm not evenly applying the shrinking -- it's applied from the end back to the start
   flexShrink: number;
 
   // could also be onOverflow
-  onOverflow: (typeof ON_TRUNCATE_TYPES)[number];
+  onOverflow: keyof typeof ON_TRUNCATE_TYPES;
 
   // The actual string to include in the label
   value: string;
@@ -33,6 +39,8 @@ type RenderLabelElementsConfig = {
   lengthLimit: number;
   mode: 'force-truncate' | 'shrink';
 };
+
+export const SEPARATOR_BEFORE_LABEL = '##';
 
 export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
@@ -199,4 +207,38 @@ export function renderLabel(
   }
 
   return forceTruncatedRender;
+}
+
+type RenderFinalizedMatchesConfig = {
+  finalizedMatches: LabelTransactionMatchNonNullable[];
+  prefix: string;
+};
+
+export function renderFinalizedMatches({
+  finalizedMatches,
+  prefix,
+}: RenderFinalizedMatchesConfig): LabelTransactionMatchFinalized[] {
+  return finalizedMatches.map((match) => {
+    const newMemo = renderLabel(
+      [
+        // YNAB transaction memo
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.truncate,
+          value: match.transactionMatch.memo ?? '',
+        },
+
+        // divider
+        {flexShrink: 0, onOverflow: 'omit', value: '##'},
+
+        // prefix
+        {flexShrink: 0, onOverflow: 'omit', value: prefix},
+
+        // label parts
+        ...match.label.memo,
+      ],
+      MAXIMUM_YNAB_MEMO_LENGTH,
+    );
+    return {...match, newMemo};
+  });
 }
