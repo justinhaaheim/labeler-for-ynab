@@ -1,4 +1,8 @@
 import type {
+  StandardTransactionType,
+  StandardTransactionTypeWithLabelElements,
+} from './LabelTypes';
+import type {
   LabelTransactionMatchFinalized,
   LabelTransactionMatchNonNullable,
 } from './Matching';
@@ -237,8 +241,20 @@ export function renderFinalizedMatches({
         // label parts
         ...match.label.memo,
       ],
+      // TODO: Maybe take this in as a function arg rather than assuming 200 here
       MAXIMUM_YNAB_MEMO_LENGTH,
     );
     return {...match, newMemo};
   });
+}
+
+export function renderStandardTransactionFromLabelElements(
+  transactionWithLabelElements: StandardTransactionTypeWithLabelElements,
+  lengthLimit = Infinity,
+): StandardTransactionType {
+  const renderedMemo = renderLabel(
+    transactionWithLabelElements.memo,
+    lengthLimit,
+  );
+  return {...transactionWithLabelElements, memo: renderedMemo};
 }

@@ -348,22 +348,32 @@ export function convertParsedLabelsToStandardTransaction(
   }
 }
 
-export function convertYnabToStandardTransaction(
-  ynabTransactions: TransactionDetail[],
-): StandardTransactionTypeWithLabelElements[] {
-  return ynabTransactions.map((t) => ({
-    amount: ynab.utils.convertMilliUnitsToCurrencyAmount(t.amount),
-    date: t.date,
-    id: t.id,
+export function convertYnabTransactionToStandardTransactionWithLabelElements(
+  ynabTransaction: TransactionDetail,
+): StandardTransactionTypeWithLabelElements {
+  return {
+    amount: ynab.utils.convertMilliUnitsToCurrencyAmount(
+      ynabTransaction.amount,
+    ),
+    date: ynabTransaction.date,
+    id: ynabTransaction.id,
     memo: [
       {
         flexShrink: 0,
         onOverflow: ON_TRUNCATE_TYPES.truncate,
-        value: t.memo ?? '',
+        value: ynabTransaction.memo ?? '',
       },
     ],
-    payee: t.payee_name ?? '',
-  }));
+    payee: ynabTransaction.payee_name ?? '',
+  };
+}
+
+export function convertYnabTransactionArrayToStandardTransactionWithLabelElements(
+  ynabTransactions: TransactionDetail[],
+): StandardTransactionTypeWithLabelElements[] {
+  return ynabTransactions.map(
+    convertYnabTransactionToStandardTransactionWithLabelElements,
+  );
 }
 
 export function convertYnabCsvToStandardTransaction(

@@ -1,8 +1,5 @@
 import type {ParsedLabelsTyped} from './LabelParser';
-import type {
-  StandardTransactionType,
-  StandardTransactionTypeWithLabelElements,
-} from './LabelTypes';
+import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {
   LabelTransactionMatchFinalized,
   LabelTransactionMatchNonNullable,
@@ -48,19 +45,22 @@ import ColorSchemeToggle from './ColorSchemeToggle';
 import config from './config.json';
 import {
   convertParsedLabelsToStandardTransaction,
-  convertYnabToStandardTransaction,
+  convertYnabTransactionToStandardTransactionWithLabelElements,
 } from './Converters';
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
-import {renderFinalizedMatches} from './LabelElements';
+import {
+  renderFinalizedMatches,
+  renderStandardTransactionFromLabelElements,
+} from './LabelElements';
 import LabelTransactionMatchTable from './LabelTransactionMatchTable';
 import MatchCandidateTable from './MatchCandidateTable';
 import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
-import {syncLabelsToYnab} from './Sync';
+import {MAXIMUM_YNAB_MEMO_LENGTH, syncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
 import {
@@ -75,7 +75,6 @@ const YNAB_DEFAULT_TOKEN_EXPIRATION_TIME_SECONDS = 7200;
 const TOKEN_EXPIRATION_REDUCTION_MS = 1000 * 60;
 
 const UNDERSCORE_STRING = '__';
-const LABEL_PREFIX_SEPARATOR = ' ';
 
 const YNAB_ACCESS_TOKEN_URL_HASH_KEY = 'access_token';
 
@@ -195,8 +194,8 @@ function App() {
         return true;
       });
 
-      // TODO: Write a function to assert the nonNullable type
       return renderFinalizedMatches({
+        // TODO: Write a function to assert the nonNullable type
         finalizedMatches: matchesFiltered as LabelTransactionMatchNonNullable[],
         prefix: labelPrefix,
       });
@@ -845,9 +844,15 @@ function App() {
                       </Typography>
 
                       <TransactionDataGrid
+                        // TODO NEXT: Write a converter between Label
                         transactions={finalizedMatches
                           .filter((m) => m.transactionMatch == null)
-                          .map((m) => m.label)}
+                          .map((m) =>
+                            renderStandardTransactionFromLabelElements(
+                              m.label,
+                              Infinity,
+                            ),
+                          )}
                       />
                     </Grid>
                   </Grid>
@@ -865,8 +870,12 @@ function App() {
                       {transactions != null && (
                         <TransactionDataGrid
                           size="sm"
-                          transactions={convertYnabToStandardTransaction(
-                            transactions,
+                          transactions={transactions.map((t) =>
+                            renderStandardTransactionFromLabelElements(
+                              convertYnabTransactionToStandardTransactionWithLabelElements(
+                                t,
+                              ),
+                            ),
                           )}
                         />
                       )}
@@ -884,7 +893,12 @@ function App() {
                       {labelsWithLabelElements != null && (
                         <TransactionDataGrid
                           size="sm"
-                          transactions={labelsWithLabelElements}
+                          transactions={labelsWithLabelElements.map((l) =>
+                            renderStandardTransactionFromLabelElements(
+                              l,
+                              MAXIMUM_YNAB_MEMO_LENGTH,
+                            ),
+                          )}
                         />
                       )}
                     </Grid>

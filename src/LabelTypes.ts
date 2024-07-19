@@ -38,7 +38,7 @@ export interface StandardTransactionType {
   memo: string;
   payee: string;
 }
-
+// TODO NEXT: Write a converter between StandardTransactionTypeWithLabelElements and StandardTransactionType so that we can easily render the non-finalized matches into a table
 export interface StandardTransactionTypeWithLabelElements {
   amount: number;
   date: string;

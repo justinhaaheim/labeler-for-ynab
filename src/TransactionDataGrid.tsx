@@ -4,6 +4,8 @@ import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import {useState} from 'react';
 
+import getFormattedAmount from './getFormattedAmount';
+
 type Props = {
   size?: 'lg' | 'md' | 'sm';
   // label: string;
@@ -12,8 +14,10 @@ type Props = {
 
 type GridColumnDef = {
   field: keyof StandardTransactionType;
+  formatter?: (value: any) => string;
   headerName: string;
   sx?: Record<string, number | string>;
+  // textAlign?: 'center' | 'end' | 'start';
   truncatable?: boolean;
   // width?: string;
 };
@@ -37,8 +41,9 @@ const columns: GridColumnDef[] = [
   {field: 'memo', headerName: 'Memo', sx: {width: '40%'}},
   {
     field: 'amount',
+    formatter: (amountNumber: number) => getFormattedAmount(amountNumber),
     headerName: 'Amount',
-    sx: {width: '5em'},
+    sx: {textAlign: 'end', width: '5em'},
     truncatable: false,
   },
 ];
@@ -50,7 +55,7 @@ export default function TransactionDataGrid({
   const data =
     transactions.length > 0
       ? transactions
-      : [{amount: '-', date: '-', id: '-', memo: '-', payee: '-'}];
+      : [{amount: 0, date: '-', id: '-', memo: '-', payee: '-'}];
   const [rowIsWrapped, setRowIsWrapped] = useState<Record<string, boolean>>({});
 
   return (
@@ -101,12 +106,15 @@ export default function TransactionDataGrid({
                 {columns.map((col) => (
                   <td
                     key={col.field}
-                    style={
-                      rowShouldWrap || !(col.truncatable ?? true)
+                    style={{
+                      ...(rowShouldWrap || !(col.truncatable ?? true)
                         ? ROW_WRAP_STYLE
-                        : ROW_NO_WRAP_STYLE
-                    }>
-                    {t[col.field]}
+                        : ROW_NO_WRAP_STYLE),
+                      ...(col.sx ?? {}),
+                    }}>
+                    {col.formatter != null
+                      ? col.formatter(t[col.field])
+                      : t[col.field]}
                   </td>
                 ))}
               </tr>
