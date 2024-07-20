@@ -44,7 +44,7 @@ type RenderLabelElementsConfig = {
   mode: 'force-truncate' | 'shrink';
 };
 
-export const SEPARATOR_BEFORE_LABEL = '##';
+export const SEPARATOR_BEFORE_LABEL = '@@';
 
 export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
@@ -233,7 +233,7 @@ export function renderFinalizedMatches({
         },
 
         // divider
-        {flexShrink: 0, onOverflow: 'omit', value: '##'},
+        {flexShrink: 0, onOverflow: 'omit', value: SEPARATOR_BEFORE_LABEL},
 
         // prefix
         {flexShrink: 0, onOverflow: 'omit', value: prefix},
