@@ -2,6 +2,6 @@
 . "$(dirname "$0")/_/husky.sh"
 
 npm run ts-check-masked
-npm run test -o
+npm run test -o --silent
 echo ""
 npx lint-staged
