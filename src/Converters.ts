@@ -8,7 +8,7 @@ import {shortenAmazonOrderURL} from './AmazonLinks';
 import {getDateString} from './DateUtils';
 import isNonNullable from './isNonNullable';
 import {ON_TRUNCATE_TYPES} from './LabelElements';
-import {getParsedLabelsFromCsv, type ParsedLabelsTyped} from './LabelParser';
+import {type ParsedLabelsTyped} from './LabelParser';
 import {
   AMAZON_PAYEE_NAME,
   type AmazonOrdersCsvImportType,
@@ -37,7 +37,15 @@ type TransactionDataNonNullable = {
   date: Date;
 };
 
-const SHORTEN_AMAZON_LINKS = true;
+export type AmazonOptionsConfig = {
+  includeLinks: boolean;
+  linkType: 'markdown' | 'plain';
+  shortenLinks: boolean;
+};
+
+type ConvertParsedLabelConfig = {
+  amazonConfig: AmazonOptionsConfig;
+};
 
 const AMAZON_PAYMENTS_STRING_DELIMITER = ':';
 const AMAZON_PAYMENTS_TRANSACTION_DELIMITER = ';';
@@ -184,6 +192,7 @@ function getDataFromAmazonPaymentsString(
  */
 export function getLabelsFromAmazonOrders(
   orders: AmazonOrdersCsvImportType[],
+  config: AmazonOptionsConfig,
 ): StandardTransactionTypeWithLabelElements[] {
   /**
    * NOTE: We may not need this order occurrence counting, as the data we're using from the amazon transaction
@@ -248,7 +257,7 @@ export function getLabelsFromAmazonOrders(
         0,
       );
 
-      const orderURLMaybeShortened = SHORTEN_AMAZON_LINKS
+      const orderURLMaybeShortened = config.shortenLinks
         ? shortenAmazonOrderURL(order.order_url)
         : order.order_url;
 
@@ -259,6 +268,16 @@ export function getLabelsFromAmazonOrders(
           `[getLabelsFromAmazonOrders] shortened URL saved ${charactersSaved} characters.`,
         );
       }
+
+      const orderURLLabelElements: LabelElement[] = config.includeLinks
+        ? [
+            {
+              flexShrink: 0,
+              onOverflow: ON_TRUNCATE_TYPES.omit,
+              value: orderURLMaybeShortened,
+            },
+          ]
+        : [];
 
       /**
        * Create a label based on the order itself as a fallback in case we can't
@@ -275,11 +294,7 @@ export function getLabelsFromAmazonOrders(
             onOverflow: ON_TRUNCATE_TYPES.truncate,
             value: order.items,
           },
-          {
-            flexShrink: 0,
-            onOverflow: ON_TRUNCATE_TYPES.omit,
-            value: orderURLMaybeShortened,
-          },
+          ...orderURLLabelElements,
         ],
         payee: AMAZON_PAYEE_NAME,
       };
@@ -320,11 +335,7 @@ export function getLabelsFromAmazonOrders(
               onOverflow: ON_TRUNCATE_TYPES.truncate,
               value: order.items,
             },
-            {
-              flexShrink: 0,
-              onOverflow: ON_TRUNCATE_TYPES.omit,
-              value: orderURLMaybeShortened,
-            },
+            ...orderURLLabelElements,
           ].filter(isNonNullable);
 
           return {
@@ -342,20 +353,24 @@ export function getLabelsFromAmazonOrders(
   return labelsFromOrdersNullable.filter(isNonNullable);
 }
 
-export function getLabelsFromCsv(
-  csvText: string,
-): StandardTransactionTypeWithLabelElements[] {
-  return convertParsedLabelsToStandardTransaction(
-    getParsedLabelsFromCsv(csvText),
-  );
-}
+// export function getLabelsFromCsv(
+//   csvText: string,
+// ): StandardTransactionTypeWithLabelElements[] {
+//   return convertParsedLabelsToStandardTransaction(
+//     getParsedLabelsFromCsv(csvText),
+//   );
+// }
 
 export function convertParsedLabelsToStandardTransaction(
   parsedLabels: ParsedLabelsTyped,
+  config: ConvertParsedLabelConfig,
 ): StandardTransactionTypeWithLabelElements[] {
   switch (parsedLabels._type) {
     case 'amazon': {
-      return getLabelsFromAmazonOrders(parsedLabels.labels);
+      return getLabelsFromAmazonOrders(
+        parsedLabels.labels,
+        config.amazonConfig,
+      );
     }
     case 'ynab': {
       return convertYnabCsvToStandardTransaction(parsedLabels.labels);

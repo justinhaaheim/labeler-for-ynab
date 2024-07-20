@@ -36,12 +36,14 @@ const VisuallyHiddenInput = styled('input')`
 
 type Props = {
   cardStyle: SxProps;
+  children?: React.ReactNode;
   labelCount: number | null;
   onLabelPrefixChange: (prefix: string) => void;
   onNewLabelData: (labels: ParsedLabelsTyped) => void;
 };
 
 export default function InputFileUpload({
+  children,
   onNewLabelData,
   onLabelPrefixChange,
   labelCount,
@@ -179,6 +181,8 @@ export default function InputFileUpload({
             </FormHelperText>
           </FormControl>
         </Box>
+
+        {children != null && <Box>{children}</Box>}
       </Stack>
     </Card>
   );

@@ -1,3 +1,4 @@
+import type {AmazonOptionsConfig} from './Converters';
 import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {
@@ -24,6 +25,8 @@ import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
 // import ListItemButton from '@mui/joy/ListItemButton';
 import Option from '@mui/joy/Option';
+import Radio from '@mui/joy/Radio';
+import RadioGroup from '@mui/joy/RadioGroup';
 import Select from '@mui/joy/Select';
 // import Button from '@mui/joy/Button';
 import Sheet from '@mui/joy/Sheet';
@@ -115,16 +118,24 @@ function App() {
     ynab.TransactionDetail[] | null
   >(null);
 
+  const [amazonConfig, setAmazonConfig] = useState<AmazonOptionsConfig>({
+    includeLinks: true,
+    linkType: 'plain',
+    shortenLinks: false,
+  });
+
   const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);
   const labelsWithLabelElements = useMemo<
     StandardTransactionTypeWithLabelElements[] | null
   >(() => {
     if (labelData != null) {
       // Take the raw data that was parsed and determine the best label from it
-      return convertParsedLabelsToStandardTransaction(labelData);
+      return convertParsedLabelsToStandardTransaction(labelData, {
+        amazonConfig: amazonConfig,
+      });
     }
     return null;
-  }, [labelData]);
+  }, [amazonConfig, labelData]);
 
   const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
     useState<LabelSyncFilterConfig>({
@@ -563,8 +574,83 @@ function App() {
                     cardStyle={cardStyle}
                     labelCount={labelsWithLabelElements?.length ?? null}
                     onLabelPrefixChange={setLabelPrefixNotDeferred}
-                    onNewLabelData={setLabelData}
-                  />
+                    onNewLabelData={setLabelData}>
+                    {labelData?._type === 'amazon' && (
+                      <Stack alignItems="start" spacing={2} sx={{my: 1}}>
+                        <Box role="group">
+                          <Typography component="legend">
+                            Amazon Options
+                          </Typography>
+                          <List size="sm">
+                            <ListItem>
+                              <Checkbox
+                                checked={amazonConfig.includeLinks}
+                                label="Include Amazon order links"
+                                onChange={(
+                                  e: React.ChangeEvent<HTMLInputElement>,
+                                ) =>
+                                  setAmazonConfig((prev) => ({
+                                    ...prev,
+                                    includeLinks: e.target.checked,
+                                  }))
+                                }
+                              />
+                            </ListItem>
+
+                            {amazonConfig.includeLinks && (
+                              <>
+                                <ListItem sx={{ml: 4}}>
+                                  <FormControl>
+                                    <RadioGroup
+                                      onChange={(
+                                        event: React.ChangeEvent<HTMLInputElement>,
+                                      ) => {
+                                        setAmazonConfig((prev) => ({
+                                          ...prev,
+                                          linkType: event.target
+                                            .value as AmazonOptionsConfig['linkType'],
+                                        }));
+                                      }}
+                                      value={amazonConfig.linkType}>
+                                      <Stack
+                                        direction="row"
+                                        flexWrap="wrap"
+                                        spacing={2}
+                                        useFlexGap>
+                                        <Radio
+                                          label="Plain Links"
+                                          value="plain"
+                                        />
+                                        <Radio
+                                          label="Markdown Links"
+                                          value="markdown"
+                                        />
+                                      </Stack>
+                                    </RadioGroup>
+                                  </FormControl>
+                                </ListItem>
+
+                                <ListItem sx={{ml: 4, pb: 2}}>
+                                  <Checkbox
+                                    checked={amazonConfig.shortenLinks}
+                                    label="Shorten links (experimental)"
+                                    onChange={(
+                                      e: React.ChangeEvent<HTMLInputElement>,
+                                    ) =>
+                                      setAmazonConfig((prev) => ({
+                                        ...prev,
+                                        shortenLinks: e.target.checked,
+                                      }))
+                                    }
+                                  />
+                                </ListItem>
+                              </>
+                            )}
+                          </List>
+                        </Box>
+                      </Stack>
+                    )}
+                  </InputFileUpload>
 
                   <Card sx={cardStyle}>
                     <Box sx={{mb: 1}}>
