@@ -1,6 +1,9 @@
 /**
  * NOTE: there are almost certainly assumptions we're making here that will
  * break for other countries' amazon links.
+ *
+ * As of 2024-07-20 this can save 47 characters from an Amazon US url
+ *
  * @param url
  *
  * Example long link: https://www.amazon.com/gp/your-account/order-details/ref=ppx_yo_dt_b_order_details_o02?ie=UTF8&orderID=112-2959450-8957868

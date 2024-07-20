@@ -4,6 +4,7 @@ import type {TransactionDetail} from 'ynab';
 import {v4 as uuidv4} from 'uuid';
 import * as ynab from 'ynab';
 
+import {shortenAmazonOrderURL} from './AmazonLinks';
 import {getDateString} from './DateUtils';
 import isNonNullable from './isNonNullable';
 import {ON_TRUNCATE_TYPES} from './LabelElements';
@@ -35,6 +36,8 @@ type TransactionDataNonNullable = {
   amount: number;
   date: Date;
 };
+
+const SHORTEN_AMAZON_LINKS = true;
 
 const AMAZON_PAYMENTS_STRING_DELIMITER = ':';
 const AMAZON_PAYMENTS_TRANSACTION_DELIMITER = ';';
@@ -245,6 +248,18 @@ export function getLabelsFromAmazonOrders(
         0,
       );
 
+      const orderURLMaybeShortened = SHORTEN_AMAZON_LINKS
+        ? shortenAmazonOrderURL(order.order_url)
+        : order.order_url;
+
+      const charactersSaved =
+        order.order_url.length - orderURLMaybeShortened.length;
+      if (charactersSaved > 0) {
+        console.debug(
+          `[getLabelsFromAmazonOrders] shortened URL saved ${charactersSaved} characters.`,
+        );
+      }
+
       /**
        * Create a label based on the order itself as a fallback in case we can't
        * glean any information from the transaction data
@@ -263,7 +278,7 @@ export function getLabelsFromAmazonOrders(
           {
             flexShrink: 0,
             onOverflow: ON_TRUNCATE_TYPES.omit,
-            value: order.order_url,
+            value: orderURLMaybeShortened,
           },
         ],
         payee: AMAZON_PAYEE_NAME,
@@ -308,7 +323,7 @@ export function getLabelsFromAmazonOrders(
             {
               flexShrink: 0,
               onOverflow: ON_TRUNCATE_TYPES.omit,
-              value: order.order_url,
+              value: orderURLMaybeShortened,
             },
           ].filter(isNonNullable);
 
