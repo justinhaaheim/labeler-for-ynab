@@ -146,6 +146,14 @@ export default function FinalizedMatchesDataGrid({
               <tr
                 key={rowID}
                 onClick={() => {
+                  const newSelectionLength =
+                    window.getSelection()?.toString().length ?? null;
+
+                  // Don't toggle the row if we're trying to select something
+                  if (newSelectionLength != null && newSelectionLength > 0) {
+                    return;
+                  }
+
                   if (rowIsWrapped[rowID] == null) {
                     // Row is currently in default of true, let's change to false
 

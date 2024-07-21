@@ -90,49 +90,17 @@ export default function TransactionDataGrid({
           {data.map((t) => {
             const rowShouldWrap = rowIsWrapped[t.id] ?? false;
 
-            /**
-             * There are two ways to check if the user is trying to select the text:
-             * check if the mouse moved, or check if the selection length changed.
-             *
-             * The mouse can move even when the selection doesn't change, so selection
-             * length seems like the better option here.
-             */
-            let didMouseMoveBetweenClicks = false;
-            let selectionLengthAtStart: number | null = null;
-
             return (
               <tr
                 key={t.id}
                 onClick={(_e: React.MouseEvent<HTMLTableRowElement>) => {
-                  // console.log('Row clicked', e);
-                  // console.log('didMouseMove?', didMouseMoveBetweenClicks);
-                  // console.log(window.getSelection());
-
-                  // // Don't toggle the row if we're trying to select something
-                  // if (didMouseMoveBetweenClicks) {
-                  //   didMouseMoveBetweenClicks = false;
-                  //   return;
-                  // }
-
                   const newSelectionLength =
                     window.getSelection()?.toString().length ?? null;
-                  // console.log('newSelectionLength', newSelectionLength);
+
                   // Don't toggle the row if we're trying to select something
                   if (newSelectionLength != null && newSelectionLength > 0) {
                     return;
                   }
-
-                  // const selectionLengthChange =
-                  //   (newSelectionLength ?? 0) - (selectionLengthAtStart ?? 0);
-                  // console.log(
-                  //   'Selection length change:',
-                  //   selectionLengthChange,
-                  // );
-
-                  // Don't toggle the row if we're trying to select something
-                  // if (selectionLengthChange > 0) {
-                  //   return;
-                  // }
 
                   if (rowIsWrapped[t.id] == null) {
                     // Row is currently in default of true, let's change to false
@@ -142,19 +110,7 @@ export default function TransactionDataGrid({
                   }
 
                   setRowIsWrapped((prev) => ({...prev, [t.id]: !prev[t.id]}));
-                }}
-                // onMouseDown={(_e) => {
-                //   // console.log('onMouseDown', e);
-                //   selectionLengthAtStart =
-                //     window.getSelection()?.toString().length ?? null;
-                // }}
-                // onMouseMove={(e) => {
-                //   if (e.buttons > 0) {
-                //     didMouseMoveBetweenClicks = true;
-                //     // console.log('onMouseMove', e);
-                //   }
-                // }}
-              >
+                }}>
                 {columns.map((col) => (
                   <td
                     key={col.field}
