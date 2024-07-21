@@ -25,6 +25,9 @@ export interface LabelElement {
   // Whether or not this element should shrink if the total label is over the limit. Right now I'm just using 1 and 0, and unlike flexbox I'm not evenly applying the shrinking -- it's applied from the end back to the start
   flexShrink: number;
 
+  // How many spaces to include between this and the next element
+  marginEnd?: number;
+
   // could also be onOverflow
   onOverflow: keyof typeof ON_TRUNCATE_TYPES;
 
@@ -41,7 +44,7 @@ type RenderLabelElementsConfig = {
   // the elementListTransform is automatically applied to every remaining item
   elementListTransform?: ElementListTransform;
   lengthLimit: number;
-  mode: 'force-truncate' | 'shrink';
+  mode: 'handle-overflow' | 'shrink';
 };
 
 export const SEPARATOR_BEFORE_LABEL = '@@';
@@ -50,16 +53,28 @@ export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
 const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
 
+function trimElementValues(elements: LabelElement[]): LabelElement[] {
+  return elements.map((e) => ({...e, value: e.value.trim()}));
+}
+
 function renderLabelNoLimit(elements: LabelElement[]): string {
   return elements
     .filter((e) => e.value.length > 0) // Don't render anything if value is empty
     .map((e, i, arr) => {
+      // NOTE: We trim all values by default
+      const valueTrimmed = e.value.trim();
       if (i === arr.length - 1) {
         // Don't add any gap after the last element
-        return e.value;
+        return valueTrimmed;
       }
 
-      return e.value + DEFAULT_GAP;
+      return (
+        valueTrimmed +
+        // Save a few processor cycles by not calling repeatString unless we need to
+        (e.marginEnd == null || e.marginEnd === DEFAULT_GAP_LENGTH
+          ? DEFAULT_GAP
+          : repeatString(DEFAULT_GAP, e.marginEnd ?? DEFAULT_GAP_LENGTH))
+      );
     })
     .join('');
 }
@@ -80,6 +95,7 @@ function renderLabelElementsWithStrategy(
     fullRender,
     fullRenderLength: fullRender.length,
     lengthLimit,
+    mode,
   });
 
   if (fullRender.length <= lengthLimit) {
@@ -117,13 +133,25 @@ function renderLabelElementsWithStrategy(
 
     if (mode === 'shrink' && e.flexShrink > 0) {
       const newValue = e.value.slice(0, -charsToReduce);
+      console.debug(`🔍 Shrinking element ${e.value}`, {
+        /* eslint-disable sort-keys-fix/sort-keys-fix */
+        before: e.value,
+        after_: newValue,
+        /* eslint-enable sort-keys-fix/sort-keys-fix */
+      });
       newElementsReversed[i] = {...e, value: newValue};
       continue;
     }
 
-    if (mode === 'force-truncate') {
+    if (mode === 'handle-overflow') {
       const newValue =
         e.onOverflow === 'omit' ? '' : e.value.slice(0, -charsToReduce);
+      console.debug(`🔍 Handling overflow for element ${e.value}`, {
+        /* eslint-disable sort-keys-fix/sort-keys-fix */
+        before: e.value,
+        after_: newValue,
+        /* eslint-enable sort-keys-fix/sort-keys-fix */
+      });
       newElementsReversed[i] = {...e, value: newValue};
       continue;
     }
@@ -140,9 +168,10 @@ function renderLabelElementsWithStrategy(
 }
 
 export function renderLabel(
-  elements: LabelElement[],
+  elementsUntrimmed: LabelElement[],
   lengthLimit: number,
 ): string {
+  const elements = trimElementValues(elementsUntrimmed);
   const fullRender = renderLabelNoLimit(elements);
 
   let charactersToReduce = fullRender.length - lengthLimit;
@@ -192,7 +221,7 @@ export function renderLabel(
     {
       elementListTransform: shrinkTransform,
       lengthLimit,
-      mode: 'force-truncate',
+      mode: 'handle-overflow',
     },
   );
 

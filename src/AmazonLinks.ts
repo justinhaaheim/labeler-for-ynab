@@ -93,21 +93,25 @@ export function getAmazonOrderLabelElements({
       return [
         {
           flexShrink: 0,
+          marginEnd: 0,
           onOverflow: ON_TRUNCATE_TYPES.omit,
           value: '[',
         },
         {
           flexShrink: 1,
+          marginEnd: 0,
           onOverflow: ON_TRUNCATE_TYPES.truncate,
           value: items,
         },
         {
           flexShrink: 0,
+          marginEnd: 0,
           onOverflow: ON_TRUNCATE_TYPES.omit,
           value: '](',
         },
         {
           flexShrink: 0,
+          marginEnd: 0,
           onOverflow: ON_TRUNCATE_TYPES.omit,
           value: orderURLMaybeShortened,
         },
