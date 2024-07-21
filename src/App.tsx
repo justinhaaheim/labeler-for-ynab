@@ -121,7 +121,7 @@ function App() {
   const [amazonConfig, setAmazonConfig] = useState<AmazonOptionsConfig>({
     includeLinks: true,
     linkType: 'plain',
-    shortenLinks: false,
+    shortenLinks: true,
   });
 
   const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);

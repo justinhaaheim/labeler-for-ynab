@@ -4,7 +4,7 @@ import type {TransactionDetail} from 'ynab';
 import {v4 as uuidv4} from 'uuid';
 import * as ynab from 'ynab';
 
-import {shortenAmazonOrderURL} from './AmazonLinks';
+import {getAmazonOrderLabelElements} from './AmazonLinks';
 import {getDateString} from './DateUtils';
 import isNonNullable from './isNonNullable';
 import {ON_TRUNCATE_TYPES} from './LabelElements';
@@ -257,27 +257,11 @@ export function getLabelsFromAmazonOrders(
         0,
       );
 
-      const orderURLMaybeShortened = config.shortenLinks
-        ? shortenAmazonOrderURL(order.order_url)
-        : order.order_url;
-
-      const charactersSaved =
-        order.order_url.length - orderURLMaybeShortened.length;
-      if (charactersSaved > 0) {
-        console.debug(
-          `[getLabelsFromAmazonOrders] shortened URL saved ${charactersSaved} characters.`,
-        );
-      }
-
-      const orderURLLabelElements: LabelElement[] = config.includeLinks
-        ? [
-            {
-              flexShrink: 0,
-              onOverflow: ON_TRUNCATE_TYPES.omit,
-              value: orderURLMaybeShortened,
-            },
-          ]
-        : [];
+      const orderLabelElements: LabelElement[] = getAmazonOrderLabelElements({
+        config,
+        items: order.items,
+        url: order.order_url,
+      });
 
       /**
        * Create a label based on the order itself as a fallback in case we can't
@@ -288,14 +272,7 @@ export function getLabelsFromAmazonOrders(
         amount: -1 * parsedOrderTotal,
         date: order.date,
         id: labelId,
-        memo: [
-          {
-            flexShrink: 1,
-            onOverflow: ON_TRUNCATE_TYPES.truncate,
-            value: order.items,
-          },
-          ...orderURLLabelElements,
-        ],
+        memo: orderLabelElements,
         payee: AMAZON_PAYEE_NAME,
       };
 
@@ -330,12 +307,7 @@ export function getLabelsFromAmazonOrders(
                   value: `(charge ${i + 1}/${transactionData.length})`,
                 }
               : null,
-            {
-              flexShrink: 1,
-              onOverflow: ON_TRUNCATE_TYPES.truncate,
-              value: order.items,
-            },
-            ...orderURLLabelElements,
+            ...orderLabelElements,
           ].filter(isNonNullable);
 
           return {

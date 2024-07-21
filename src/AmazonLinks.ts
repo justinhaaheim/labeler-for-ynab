@@ -1,3 +1,8 @@
+import type {AmazonOptionsConfig} from './Converters';
+
+import exhaustivenessCheck from './exhaustivenessCheck';
+import {type LabelElement, ON_TRUNCATE_TYPES} from './LabelElements';
+
 /**
  * NOTE: there are almost certainly assumptions we're making here that will
  * break for other countries' amazon links.
@@ -41,4 +46,81 @@ export function shortenAmazonOrderURL(urlString: string): string {
   newUrl.search = newSearchParams.toString();
 
   return newUrl.toString();
+}
+
+type GetAmazonURLElementsProps = {
+  config: AmazonOptionsConfig;
+  items: string;
+  url: string;
+};
+
+export function getAmazonOrderLabelElements({
+  url,
+  items,
+  config,
+}: GetAmazonURLElementsProps): LabelElement[] {
+  if (config.includeLinks === false) {
+    return [];
+  }
+  const orderURLMaybeShortened = config.shortenLinks
+    ? shortenAmazonOrderURL(url)
+    : url;
+
+  const charactersSaved = url.length - orderURLMaybeShortened.length;
+  if (charactersSaved > 0) {
+    console.debug(
+      `[getLabelsFromAmazonOrders] shortened URL saved ${charactersSaved} characters.`,
+    );
+  }
+
+  switch (config.linkType) {
+    case 'plain': {
+      return [
+        {
+          flexShrink: 1,
+          onOverflow: ON_TRUNCATE_TYPES.truncate,
+          value: items,
+        },
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.omit,
+          value: orderURLMaybeShortened,
+        },
+      ];
+    }
+
+    case 'markdown': {
+      return [
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.omit,
+          value: '[',
+        },
+        {
+          flexShrink: 1,
+          onOverflow: ON_TRUNCATE_TYPES.truncate,
+          value: items,
+        },
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.omit,
+          value: '](',
+        },
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.omit,
+          value: orderURLMaybeShortened,
+        },
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.omit,
+          value: ')',
+        },
+      ];
+    }
+
+    default: {
+      return exhaustivenessCheck(config.linkType);
+    }
+  }
 }

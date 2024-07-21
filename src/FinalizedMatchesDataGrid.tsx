@@ -44,7 +44,7 @@ const columns: GridColumnDef[] = [
     field: 'labelMemo',
     getValue: (m) => renderLabel(m.label.memo, Infinity),
     headerName: 'Label Text',
-    // sx: {width: '40%'},
+    sx: {width: '15em'},
   },
   {
     field: 'labelAmount',
