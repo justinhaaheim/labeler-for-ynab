@@ -122,10 +122,6 @@ function getTransactionDataFromAmazonPaymentsEntry(
   closeDate: Date,
   orderTotal: number,
 ) {
-  console.log('[getDataFromAmazonPaymentsString] start');
-
-  // console.log("s type:", typeof s)
-  // console.log({s, delimiter, fallback})
   const substrings = s
     .split(AMAZON_PAYMENTS_STRING_DELIMITER)
     .map((s) => s.trim());
@@ -178,10 +174,10 @@ function getDataFromAmazonPaymentsString(
       ),
     );
 
-  console.log('⭐️ [getDataFromAmazonPaymentsString]', {
-    sourceString: s,
-    transactionData,
-  });
+  // console.debug('⭐️ [getDataFromAmazonPaymentsString]', {
+  //   sourceString: s,
+  //   transactionData,
+  // });
   return transactionData;
 }
 
@@ -230,14 +226,14 @@ export function getLabelsFromAmazonOrders(
 
       // TODO: For digital orders sometimes the order total is empty, but the payments field contains a date and amount. Use that if possible.
       if (isNaN(parsedOrderTotal)) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] parsedOrderTotal is NaN; skipping order entry',
           order,
         );
         return null;
       }
       if (isNaN(parsedDate.valueOf())) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] parsedDate is NaN; skipping order entry',
           order,
         );
@@ -277,7 +273,7 @@ export function getLabelsFromAmazonOrders(
       };
 
       if (transactionData.length === 0) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] no viable transactions from payment data. Bailing on using transaction data.',
           {order, transactionData},
         );
@@ -285,7 +281,7 @@ export function getLabelsFromAmazonOrders(
       }
 
       if (transactionDataTotal !== parsedOrderTotal) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] transaction data from order did not add up to order total. Bailing on using transaction data.',
           {parsedOrderTotal, transactionData},
         );

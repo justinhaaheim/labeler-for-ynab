@@ -53,6 +53,9 @@ export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
 const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
 
+const ENABLE_DEBUG_LOGGING = false;
+const log = ENABLE_DEBUG_LOGGING ? console.debug.bind(console) : () => {};
+
 function trimElementValues(elements: LabelElement[]): LabelElement[] {
   return elements.map((e) => ({...e, value: e.value.trim()}));
 }
@@ -94,7 +97,7 @@ function renderLabelElementsWithStrategy(
 ): LabelElement[] {
   const fullRender = renderLabelNoLimit(elements);
 
-  console.debug('🏷️ [renderLabelElementsWithStrategy]', {
+  log('🏷️ [renderLabelElementsWithStrategy]', {
     charactersToReduce: fullRender.length - lengthLimit,
     elements,
     fullRender,
@@ -138,7 +141,7 @@ function renderLabelElementsWithStrategy(
 
     if (mode === 'shrink' && e.flexShrink > 0) {
       const newValue = e.value.slice(0, -charsToReduce);
-      console.debug(`🔍 Shrinking element ${e.value}`, {
+      log(`🔍 Shrinking element ${e.value}`, {
         /* eslint-disable sort-keys-fix/sort-keys-fix */
         before: e.value,
         after_: newValue,
@@ -151,7 +154,7 @@ function renderLabelElementsWithStrategy(
     if (mode === 'handle-overflow') {
       const newValue =
         e.onOverflow === 'omit' ? '' : e.value.slice(0, -charsToReduce);
-      console.debug(`🔍 Handling overflow for element ${e.value}`, {
+      log(`🔍 Handling overflow for element ${e.value}`, {
         /* eslint-disable sort-keys-fix/sort-keys-fix */
         before: e.value,
         after_: newValue,
@@ -180,7 +183,7 @@ export function renderLabel(
   const fullRender = renderLabelNoLimit(elements);
 
   let charactersToReduce = fullRender.length - lengthLimit;
-  console.debug('🏷️ [renderLabel]', {
+  log('🏷️ [renderLabel]', {
     charactersToReduce,
     elements,
     fullRender,
@@ -196,7 +199,7 @@ export function renderLabel(
    * The first way we reduce string length is by truncating any strings with
    * a positive flexShrink, starting from the end, until we're under the limit
    */
-  console.debug('🏷️ [renderLabel] Shrinking elements...');
+  log('🏷️ [renderLabel] Shrinking elements...');
   const shrunkRenderElements = renderLabelElementsWithStrategy(elements, {
     lengthLimit,
     mode: 'shrink',
@@ -218,7 +221,7 @@ export function renderLabel(
    * NEW: Now we need to start force truncating items, but let's see if we can't
    * get back some of the previously shrunk elements after we truncate/omit each next item
    */
-  console.debug('🏷️ [renderLabel] Force-truncating elements...');
+  log('🏷️ [renderLabel] Force-truncating elements...');
   const shrinkTransform: ElementListTransform = (elements, config) =>
     renderLabelElementsWithStrategy(elements, {...config, mode: 'shrink'});
   const forceTruncatedRenderElements = renderLabelElementsWithStrategy(

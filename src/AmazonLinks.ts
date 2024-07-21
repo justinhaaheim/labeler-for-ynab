@@ -71,12 +71,12 @@ export function getAmazonOrderLabelElements({
     ? shortenAmazonOrderURL(url)
     : url;
 
-  const charactersSaved = url.length - orderURLMaybeShortened.length;
-  if (charactersSaved > 0) {
-    console.debug(
-      `[getLabelsFromAmazonOrders] shortened URL saved ${charactersSaved} characters.`,
-    );
-  }
+  // const charactersSaved = url.length - orderURLMaybeShortened.length;
+  // if (charactersSaved > 0) {
+  //   console.debug(
+  //     `[getLabelsFromAmazonOrders] shortened URL saved ${charactersSaved} characters.`,
+  //   );
+  // }
 
   switch (config.linkType) {
     case 'plain': {
