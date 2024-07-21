@@ -61,8 +61,13 @@ function renderLabelNoLimit(elements: LabelElement[]): string {
   return elements
     .filter((e) => e.value.length > 0) // Don't render anything if value is empty
     .map((e, i, arr) => {
-      // NOTE: We trim all values by default
+      /**
+       * NOTE: Even though we trim all values at the outset we will still see strings here
+       * that need to be trimmed, since the process of rendering slices strings and may leave
+       * whitespace at the end
+       */
       const valueTrimmed = e.value.trim();
+
       if (i === arr.length - 1) {
         // Don't add any gap after the last element
         return valueTrimmed;
