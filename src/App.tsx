@@ -58,8 +58,6 @@ import {
   renderFinalizedMatches,
   renderStandardTransactionFromLabelElements,
 } from './LabelElements';
-import LabelTransactionMatchTable from './LabelTransactionMatchTable';
-import MatchCandidateTable from './MatchCandidateTable';
 import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
@@ -1011,24 +1009,6 @@ function App() {
                       )}
                     </Grid>
                   </Grid>
-                  {matchCandidates != null &&
-                    (matchCandidates.length === 0 ? (
-                      <Typography>No matches found</Typography>
-                    ) : (
-                      <MatchCandidateTable
-                        label="Match Candidates"
-                        matchCandidates={matchCandidates}
-                      />
-                    ))}
-                  {matchCandidates != null &&
-                    (matchCandidates.length === 0 ? (
-                      <Typography>No matches found</Typography>
-                    ) : (
-                      <LabelTransactionMatchTable
-                        label="Finalized Matches"
-                        matches={finalizedMatches}
-                      />
-                    ))}
                 </>
               )
             }
