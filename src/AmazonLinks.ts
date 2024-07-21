@@ -56,12 +56,17 @@ type GetAmazonURLElementsProps = {
 
 export function getAmazonOrderLabelElements({
   url,
-  items,
+  items: itemsRaw,
   config,
 }: GetAmazonURLElementsProps): LabelElement[] {
   if (config.includeLinks === false) {
     return [];
   }
+
+  // The items list often/always contains a trailing semicolon. Let's remove that.
+  // We also need to trim the string as there is sometimes whitespace at the end
+  const items = itemsRaw.trim().replace(/;$/, '');
+
   const orderURLMaybeShortened = config.shortenLinks
     ? shortenAmazonOrderURL(url)
     : url;
