@@ -1,7 +1,13 @@
+import type {AmazonOptionsConfig} from './Converters';
 import type {ParsedLabelsTyped} from './LabelParser';
-import type {StandardTransactionType} from './LabelTypes';
+import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
+import type {
+  LabelTransactionMatchFinalized,
+  LabelTransactionMatchNonNullable,
+} from './Matching';
 import type {UpdateLogChunkV1} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
+import type * as ynab from 'ynab';
 
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
@@ -20,6 +26,8 @@ import List from '@mui/joy/List';
 import ListItem from '@mui/joy/ListItem';
 // import ListItemButton from '@mui/joy/ListItemButton';
 import Option from '@mui/joy/Option';
+import Radio from '@mui/joy/Radio';
+import RadioGroup from '@mui/joy/RadioGroup';
 import Select from '@mui/joy/Select';
 // import Button from '@mui/joy/Button';
 import Sheet from '@mui/joy/Sheet';
@@ -32,57 +40,45 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import * as ynab from 'ynab';
 
 import packageJson from '../package.json';
 import ColorSchemeToggle from './ColorSchemeToggle';
 import config from './config.json';
 import {
   convertParsedLabelsToStandardTransaction,
-  convertYnabToStandardTransaction,
+  convertYnabTransactionToStandardTransactionWithLabelElements,
 } from './Converters';
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
+import FinalizedMatchesDataGrid from './FinalizedMatchesDataGrid';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
-import LabelTransactionMatchTable from './LabelTransactionMatchTable';
-import MatchCandidateTable from './MatchCandidateTable';
+import {
+  renderFinalizedMatches,
+  renderStandardTransactionFromLabelElements,
+} from './LabelElements';
 import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
-import {syncLabelsToYnab} from './Sync';
+import {MAXIMUM_YNAB_MEMO_LENGTH, syncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
 import {
   budgetCompareFunctionForSort,
+  getYNABApi,
   getYNABErrorHandler,
-  YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
-  YNAB_TOKEN_LOCAL_STORAGE_KEY,
 } from './YnabHelpers';
 
-const YNAB_DEFAULT_TOKEN_EXPIRATION_TIME_SECONDS = 7200;
-// Err on the side of telling the user it expires earlier than it does
-const TOKEN_EXPIRATION_REDUCTION_MS = 1000 * 60;
-
 const UNDERSCORE_STRING = '__';
-const LABEL_PREFIX_SEPARATOR = ' ';
-
-const YNAB_ACCESS_TOKEN_URL_HASH_KEY = 'access_token';
-
-// const YNAB_ACCESS_TOKEN = import.meta.env.VITE_YNAB_ACCESS_TOKEN;
-
-// const ynabAPI = new ynab.API(YNAB_ACCESS_TOKEN);
 
 type LabelSyncFilterConfig = {
   omitAlreadyCategorized: boolean;
   omitNonemptyMemo: boolean;
   omitReconciled: boolean;
 };
-
-// // @ts-ignore - remove later
-// window.ynabAPI = ynabAPI;
 
 function App() {
   const {mode} = useColorScheme();
@@ -91,9 +87,46 @@ function App() {
   const [ynabTokenExpirationTimestamp, setYnabTokenExpirationTimestamp] =
     useState<number | null>(null);
   const [ynabApi, setYnabApi] = useState<ynab.API | null>(null);
-  const [ynabAuthError, setYnabAuthError] = useState<YNABErrorType | null>(
-    null,
-  );
+  const [ynabAuthError, setYnabAuthError] = useState<boolean>(false);
+  const [ynabTokenUnavailable, setYNABTokenUnavailable] =
+    useState<boolean>(false);
+  const tokenExpirationTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const onAuthError = useCallback((error?: YNABErrorType) => {
+    console.warn('🚫 YNAB authentication error:', error);
+    setYnabAuthError(true);
+    setYnabApi(null);
+    setYnabToken(null);
+    setYnabTokenExpirationTimestamp(null);
+    if (tokenExpirationTimeoutRef.current != null) {
+      clearTimeout(tokenExpirationTimeoutRef.current);
+      tokenExpirationTimeoutRef.current = null;
+    }
+  }, []);
+
+  if (ynabApi == null && ynabTokenUnavailable === false) {
+    console.debug('📡 Initializing YNAB API: Looking for token...');
+    const {token, tokenExpirationTimestamp, api} = getYNABApi();
+
+    setYnabToken(token);
+    setYnabApi(api);
+    setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
+
+    if (token != null && tokenExpirationTimestamp != null) {
+      const delayMS = tokenExpirationTimestamp - Date.now();
+      tokenExpirationTimeoutRef.current = setTimeout(() => {
+        console.log('⏰ YNAB token has expired');
+        onAuthError();
+      }, delayMS);
+    }
+
+    if (token == null) {
+      console.warn('📡🚫 Unable to connect to YNAB: No token.');
+      setYNABTokenUnavailable(true);
+    }
+  }
 
   const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
@@ -107,14 +140,24 @@ function App() {
     ynab.TransactionDetail[] | null
   >(null);
 
+  const [amazonConfig, setAmazonConfig] = useState<AmazonOptionsConfig>({
+    includeLinks: true,
+    linkType: 'plain',
+    shortenLinks: true,
+  });
+
   const [labelData, setLabelData] = useState<ParsedLabelsTyped | null>(null);
-  const labelsWithoutPrefix = useMemo<StandardTransactionType[] | null>(() => {
+  const labelsWithLabelElements = useMemo<
+    StandardTransactionTypeWithLabelElements[] | null
+  >(() => {
     if (labelData != null) {
       // Take the raw data that was parsed and determine the best label from it
-      return convertParsedLabelsToStandardTransaction(labelData);
+      return convertParsedLabelsToStandardTransaction(labelData, {
+        amazonConfig: amazonConfig,
+      });
     }
     return null;
-  }, [labelData]);
+  }, [amazonConfig, labelData]);
 
   const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
     useState<LabelSyncFilterConfig>({
@@ -129,33 +172,15 @@ function App() {
 
   const [updateLogsList, setUpdateLogsList] = useState<UpdateLogChunkV1[]>([]);
 
-  // const [updateLogs, setUpdateLogs] = useState<UpdateLogChunkV1 | null>(null);
-
-  // const [undoUpdateLogs, setUndoUpdateLogs] = useState<UpdateLogChunkV1 | null>(
-  //   null,
-  // );
-
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
 
-  const labels: StandardTransactionType[] | null = useMemo(
-    () =>
-      labelsWithoutPrefix?.map((label) => ({
-        ...label,
-        memo:
-          labelPrefix.trim().length > 0
-            ? labelPrefix + LABEL_PREFIX_SEPARATOR + label.memo
-            : label.memo,
-      })) ?? null,
-    [labelPrefix, labelsWithoutPrefix],
-  );
-
   const matchCandidates = useMemo(
     () =>
-      labels == null || transactions == null
+      labelsWithLabelElements == null || transactions == null
         ? null
-        : getMatchCandidatesForAllLabels(labels, transactions),
-    [labels, transactions],
+        : getMatchCandidatesForAllLabels(labelsWithLabelElements, transactions),
+    [labelsWithLabelElements, transactions],
   );
 
   const finalizedMatches = useMemo(
@@ -164,9 +189,9 @@ function App() {
     [matchCandidates],
   );
 
-  const finalizedMatchesFiltered = useMemo(
-    () =>
-      finalizedMatches.filter((match) => {
+  const finalizedMatchesFiltered: LabelTransactionMatchFinalized[] =
+    useMemo(() => {
+      const matchesFiltered = finalizedMatches.filter((match) => {
         if (match.transactionMatch == null) {
           return false;
         }
@@ -195,14 +220,23 @@ function App() {
         }
 
         return true;
-      }),
-    [
+      });
+
+      const newFinalizedMatches = renderFinalizedMatches({
+        // TODO: Write a function to assert the nonNullable type
+        finalizedMatches: matchesFiltered as LabelTransactionMatchNonNullable[],
+        prefix: labelPrefix,
+      });
+
+      console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
+      return newFinalizedMatches;
+    }, [
       finalizedMatches,
+      labelPrefix,
       labelSyncFilterConfig.omitAlreadyCategorized,
       labelSyncFilterConfig.omitNonemptyMemo,
       labelSyncFilterConfig.omitReconciled,
-    ],
-  );
+    ]);
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
@@ -210,81 +244,9 @@ function App() {
 
   const successfulMatchesThatPassFiltersCount = finalizedMatchesFiltered.length;
 
-  const onAuthError = useCallback((error: YNABErrorType) => {
-    setYnabAuthError(error);
-    setYnabApi(null);
-  }, []);
-
   /////////////////////////////////////////////////
   // Effects
   /////////////////////////////////////////////////
-
-  useEffect(() => {
-    // Check for the YNAB token provided when we're redirected back from the YNAB OAuth page
-    let token = null;
-    let tokenExpirationTimestamp = null;
-
-    // NOTE: window.location.hash includes the "#"
-    const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    console.debug('parsing url hash:', {
-      hashOriginalString: window.location.hash,
-      hashParams: Array.from(hashParams.entries()),
-    });
-
-    // NOTE: .get returns null if there's no item
-    const hashToken = hashParams.get(YNAB_ACCESS_TOKEN_URL_HASH_KEY);
-
-    if (hashToken != null && hashToken.length > 0) {
-      token = hashToken;
-
-      const expiresInSeconds =
-        Number(hashParams.get('expires_in')) ??
-        YNAB_DEFAULT_TOKEN_EXPIRATION_TIME_SECONDS;
-
-      tokenExpirationTimestamp =
-        Date.now() + expiresInSeconds * 1000 - TOKEN_EXPIRATION_REDUCTION_MS;
-
-      console.debug('YNAB token from URL:', {token, tokenExpirationTimestamp});
-
-      // TODO: store when it expires and use that to warn the client when calls to the API will start failing; prompt to reauthorize
-      sessionStorage.setItem(YNAB_TOKEN_LOCAL_STORAGE_KEY, token);
-      sessionStorage.setItem(
-        YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
-        tokenExpirationTimestamp.toString(),
-      );
-
-      // Remove the token from the url
-      window.location.hash = '';
-      // This is needed to ensure the # is also removed
-      window.location.href =
-        window.location.origin +
-        window.location.pathname +
-        window.location.search;
-    } else {
-      // Otherwise try sessionStorage
-      token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
-      const tokenExpirationFromStorage = sessionStorage.getItem(
-        YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
-      );
-      tokenExpirationTimestamp =
-        tokenExpirationFromStorage == null
-          ? null
-          : Number(tokenExpirationFromStorage);
-      console.debug('Token from session storage:', {
-        token,
-        tokenExpirationTimestamp,
-      });
-    }
-
-    if (token != null && token.length > 0) {
-      setYnabToken(token);
-      setYnabApi(new ynab.API(token));
-    }
-
-    if (tokenExpirationTimestamp != null) {
-      setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
-    }
-  }, []);
 
   useEffect(() => {
     if (ynabApi != null && budgets == null) {
@@ -358,14 +320,14 @@ function App() {
     React.MouseEventHandler<HTMLAnchorElement>
   >((e) => {
     e.preventDefault();
-    const currentLocation = window.location;
 
-    // Remove the hash from the url, including the # sign (which does not get removed if you set location.hash = '')
-    const redirectUri =
-      currentLocation.origin +
-      currentLocation.pathname +
-      currentLocation.search;
-    const uri = `https://app.ynab.com/oauth/authorize?client_id=${config.clientId}&redirect_uri=${redirectUri}&response_type=token`;
+    const redirectUri = new URL(window.location.href);
+    // Remove the token from the url
+    redirectUri.hash = '';
+
+    const uri = `https://app.ynab.com/oauth/authorize?client_id=${
+      config.clientId
+    }&redirect_uri=${redirectUri.toString()}&response_type=token`;
     window.location.replace(uri);
     // fetch(uri, {method: 'GET', mode: 'no-cors'})
     //   .then((response) => {
@@ -494,7 +456,6 @@ function App() {
                               _event: React.SyntheticEvent | null,
                               newValue: string | null,
                             ) => {
-                              // console.log(event);
                               const newBudgetID = newValue;
                               if (selectedBudgetID !== newBudgetID) {
                                 console.debug(
@@ -529,10 +490,9 @@ function App() {
                           </FormLabel>
                           <Select
                             onChange={(
-                              event: React.SyntheticEvent | null,
+                              _event: React.SyntheticEvent | null,
                               newValue: string | null,
                             ) => {
-                              console.log(event);
                               const newAccountID = newValue;
                               if (selectedAccountID !== newAccountID) {
                                 console.debug(
@@ -557,10 +517,85 @@ function App() {
 
                   <InputFileUpload
                     cardStyle={cardStyle}
-                    labelCount={labels?.length ?? null}
+                    labelCount={labelsWithLabelElements?.length ?? null}
                     onLabelPrefixChange={setLabelPrefixNotDeferred}
-                    onNewLabelData={setLabelData}
-                  />
+                    onNewLabelData={setLabelData}>
+                    {labelData?._type === 'amazon' && (
+                      <Stack alignItems="start" spacing={2} sx={{my: 1}}>
+                        <Box role="group">
+                          <Typography component="legend">
+                            Amazon Options
+                          </Typography>
+                          <List size="sm">
+                            <ListItem>
+                              <Checkbox
+                                checked={amazonConfig.includeLinks}
+                                label="Include Amazon order links"
+                                onChange={(
+                                  e: React.ChangeEvent<HTMLInputElement>,
+                                ) =>
+                                  setAmazonConfig((prev) => ({
+                                    ...prev,
+                                    includeLinks: e.target.checked,
+                                  }))
+                                }
+                              />
+                            </ListItem>
+
+                            {amazonConfig.includeLinks && (
+                              <>
+                                <ListItem sx={{ml: 4}}>
+                                  <FormControl>
+                                    <RadioGroup
+                                      onChange={(
+                                        event: React.ChangeEvent<HTMLInputElement>,
+                                      ) => {
+                                        setAmazonConfig((prev) => ({
+                                          ...prev,
+                                          linkType: event.target
+                                            .value as AmazonOptionsConfig['linkType'],
+                                        }));
+                                      }}
+                                      value={amazonConfig.linkType}>
+                                      <Stack
+                                        direction="row"
+                                        flexWrap="wrap"
+                                        spacing={2}
+                                        useFlexGap>
+                                        <Radio
+                                          label="Plain Links"
+                                          value="plain"
+                                        />
+                                        <Radio
+                                          label="Markdown Links"
+                                          value="markdown"
+                                        />
+                                      </Stack>
+                                    </RadioGroup>
+                                  </FormControl>
+                                </ListItem>
+
+                                <ListItem sx={{ml: 4, pb: 2}}>
+                                  <Checkbox
+                                    checked={amazonConfig.shortenLinks}
+                                    label="Shorten links (experimental)"
+                                    onChange={(
+                                      e: React.ChangeEvent<HTMLInputElement>,
+                                    ) =>
+                                      setAmazonConfig((prev) => ({
+                                        ...prev,
+                                        shortenLinks: e.target.checked,
+                                      }))
+                                    }
+                                  />
+                                </ListItem>
+                              </>
+                            )}
+                          </List>
+                        </Box>
+                      </Stack>
+                    )}
+                  </InputFileUpload>
 
                   <Card sx={cardStyle}>
                     <Box sx={{mb: 1}}>
@@ -640,8 +675,8 @@ function App() {
                                 ynabApi == null ||
                                 transactions == null ||
                                 transactions.length === 0 ||
-                                labels == null ||
-                                labels.length === 0 ||
+                                labelsWithLabelElements == null ||
+                                labelsWithLabelElements.length === 0 ||
                                 successfulMatchesCount === 0 ||
                                 selectedAccountID == null ||
                                 selectedBudgetID == null
@@ -774,7 +809,7 @@ function App() {
 
                     <Box sx={{mb: 2, textAlign: 'start'}}>
                       <Typography>{`${
-                        labels?.length ?? UNDERSCORE_STRING
+                        labelsWithLabelElements?.length ?? UNDERSCORE_STRING
                       } labels loaded`}</Typography>
 
                       <Typography>{`${
@@ -786,13 +821,15 @@ function App() {
                           ? UNDERSCORE_STRING
                           : successfulMatchesCount
                       }/${
-                        labels?.length ?? UNDERSCORE_STRING
+                        labelsWithLabelElements?.length ?? UNDERSCORE_STRING
                       } labels matched to a YNAB transaction`}</Typography>
 
                       <Typography>{`${
-                        matchCandidates == null || labels == null
+                        matchCandidates == null ||
+                        labelsWithLabelElements == null
                           ? UNDERSCORE_STRING
-                          : labels.length - successfulMatchesCount
+                          : labelsWithLabelElements.length -
+                            successfulMatchesCount
                       } labels had no match`}</Typography>
                     </Box>
 
@@ -839,10 +876,37 @@ function App() {
                       </Typography>
 
                       <TransactionDataGrid
+                        // TODO NEXT: Write a converter between Label
                         transactions={finalizedMatches
                           .filter((m) => m.transactionMatch == null)
-                          .map((m) => m.label)}
+                          .map((m) =>
+                            renderStandardTransactionFromLabelElements(
+                              m.label,
+                              Infinity,
+                            ),
+                          )}
                       />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2}>
+                    <Grid xs={12}>
+                      <Typography level="h3" sx={{mb: 1}}>
+                        Finalized Matches
+                      </Typography>
+
+                      <Typography level="body-xs" sx={{mb: 3}}>
+                        {
+                          'This table shows the labels you provided (left) and the matching YNAB transaction (abbreviated TXN; right)'
+                        }
+                      </Typography>
+
+                      <Sheet>
+                        <FinalizedMatchesDataGrid
+                          finalizedMatches={finalizedMatchesFiltered}
+                          size="sm"
+                        />
+                      </Sheet>
                     </Grid>
                   </Grid>
 
@@ -859,8 +923,12 @@ function App() {
                       {transactions != null && (
                         <TransactionDataGrid
                           size="sm"
-                          transactions={convertYnabToStandardTransaction(
-                            transactions,
+                          transactions={transactions.map((t) =>
+                            renderStandardTransactionFromLabelElements(
+                              convertYnabTransactionToStandardTransactionWithLabelElements(
+                                t,
+                              ),
+                            ),
                           )}
                         />
                       )}
@@ -872,32 +940,22 @@ function App() {
                       </Typography>
 
                       <Typography>{`${
-                        labels?.length ?? 0
+                        labelsWithLabelElements?.length ?? 0
                       } labels loaded`}</Typography>
 
-                      {labels != null && (
-                        <TransactionDataGrid size="sm" transactions={labels} />
+                      {labelsWithLabelElements != null && (
+                        <TransactionDataGrid
+                          size="sm"
+                          transactions={labelsWithLabelElements.map((l) =>
+                            renderStandardTransactionFromLabelElements(
+                              l,
+                              MAXIMUM_YNAB_MEMO_LENGTH,
+                            ),
+                          )}
+                        />
                       )}
                     </Grid>
                   </Grid>
-                  {matchCandidates != null &&
-                    (matchCandidates.length === 0 ? (
-                      <Typography>No matches found</Typography>
-                    ) : (
-                      <MatchCandidateTable
-                        label="Match Candidates"
-                        matchCandidates={matchCandidates}
-                      />
-                    ))}
-                  {matchCandidates != null &&
-                    (matchCandidates.length === 0 ? (
-                      <Typography>No matches found</Typography>
-                    ) : (
-                      <LabelTransactionMatchTable
-                        label="Finalized Matches"
-                        matches={finalizedMatches}
-                      />
-                    ))}
                 </>
               )
             }
@@ -912,7 +970,7 @@ function App() {
           <Button
             color="danger"
             onClick={(e) => {
-              setYnabAuthError(null);
+              setYnabAuthError(false);
               authorizeWithYNAB(e);
             }}
             size="sm"
@@ -925,9 +983,9 @@ function App() {
             // Ignore clickaway
             return;
           }
-          setYnabAuthError(null);
+          setYnabAuthError(false);
         }}
-        open={ynabAuthError != null}
+        open={ynabAuthError}
         sx={{maxWidth: '50%'}}
         variant="solid">
         <Box textAlign="start">

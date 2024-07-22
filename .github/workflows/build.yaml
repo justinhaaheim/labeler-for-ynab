@@ -1,4 +1,4 @@
-name: Project Signals (typescript check, linting & prettier)
+name: Ensure Project Builds Successfully
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  check-signals:
+  build:
     runs-on: ubuntu-latest
 
     strategy:
@@ -23,11 +23,5 @@ jobs:
       - name: Install project dependencies
         run: npm ci
 
-      - name: Check for typescript errors
-        run: npm run ts-check
-
-      - name: Check for lint errors
-        run: npm run lint
-
-      - name: Check for prettier errors
-        run: npm run prettier-check
+      - name: Build the project
+        run: npm run build

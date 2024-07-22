@@ -5,7 +5,7 @@ import Box from '@mui/joy/Box';
 import Grid from '@mui/joy/Grid';
 import List from '@mui/joy/List';
 
-import {convertYnabToStandardTransaction} from './Converters';
+import {convertYnabTransactionArrayToStandardTransactionWithLabelElements} from './Converters';
 import TransactionListItems from './TransactionListItems';
 
 type Props = {
@@ -37,7 +37,9 @@ export default function LabelTransactionMatchTable({
                 transactions={
                   match.transactionMatch == null
                     ? []
-                    : convertYnabToStandardTransaction([match.transactionMatch])
+                    : convertYnabTransactionArrayToStandardTransactionWithLabelElements(
+                        [match.transactionMatch],
+                      )
                 }
               />
             </List>

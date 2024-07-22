@@ -1,15 +1,18 @@
+import type {LabelElement} from './LabelElements';
 import type {TransactionDetail} from 'ynab';
 
 import {v4 as uuidv4} from 'uuid';
 import * as ynab from 'ynab';
 
+import {getAmazonOrderLabelElements} from './AmazonLinks';
 import {getDateString} from './DateUtils';
 import isNonNullable from './isNonNullable';
-import {getParsedLabelsFromCsv, type ParsedLabelsTyped} from './LabelParser';
+import {ON_TRUNCATE_TYPES} from './LabelElements';
+import {type ParsedLabelsTyped} from './LabelParser';
 import {
   AMAZON_PAYEE_NAME,
   type AmazonOrdersCsvImportType,
-  type StandardTransactionType,
+  type StandardTransactionTypeWithLabelElements,
   type YnabCsvTransactionType,
 } from './LabelTypes';
 import parseLocaleNumber from './parseLocaleNumber';
@@ -32,6 +35,16 @@ type TransactionData = {
 type TransactionDataNonNullable = {
   amount: number;
   date: Date;
+};
+
+export type AmazonOptionsConfig = {
+  includeLinks: boolean;
+  linkType: 'markdown' | 'plain';
+  shortenLinks: boolean;
+};
+
+type ConvertParsedLabelConfig = {
+  amazonConfig: AmazonOptionsConfig;
 };
 
 const AMAZON_PAYMENTS_STRING_DELIMITER = ':';
@@ -109,10 +122,6 @@ function getTransactionDataFromAmazonPaymentsEntry(
   closeDate: Date,
   orderTotal: number,
 ) {
-  console.log('[getDataFromAmazonPaymentsString] start');
-
-  // console.log("s type:", typeof s)
-  // console.log({s, delimiter, fallback})
   const substrings = s
     .split(AMAZON_PAYMENTS_STRING_DELIMITER)
     .map((s) => s.trim());
@@ -165,16 +174,22 @@ function getDataFromAmazonPaymentsString(
       ),
     );
 
-  console.log('⭐️ [getDataFromAmazonPaymentsString]', {
-    sourceString: s,
-    transactionData,
-  });
+  // console.debug('⭐️ [getDataFromAmazonPaymentsString]', {
+  //   sourceString: s,
+  //   transactionData,
+  // });
   return transactionData;
 }
 
+/**
+ * This is the primary function that takes Amazon DATA and creates labels out of it
+ * @param orders
+ * @returns
+ */
 export function getLabelsFromAmazonOrders(
   orders: AmazonOrdersCsvImportType[],
-): StandardTransactionType[] {
+  config: AmazonOptionsConfig,
+): StandardTransactionTypeWithLabelElements[] {
   /**
    * NOTE: We may not need this order occurrence counting, as the data we're using from the amazon transaction
    * scraper is a list of orders, so there shouldn't be duplicates
@@ -193,7 +208,7 @@ export function getLabelsFromAmazonOrders(
   const orderIdOngoingOccurrenceCounter: {[key: string]: number} = {};
 
   // We use flatMap here because each order can have multiple transactions
-  const labelsFromOrdersNullable: Array<StandardTransactionType | null> =
+  const labelsFromOrdersNullable: Array<StandardTransactionTypeWithLabelElements | null> =
     orders.flatMap((order) => {
       const id = order.order_id;
       if (orderIdOngoingOccurrenceCounter[id] == null) {
@@ -211,14 +226,14 @@ export function getLabelsFromAmazonOrders(
 
       // TODO: For digital orders sometimes the order total is empty, but the payments field contains a date and amount. Use that if possible.
       if (isNaN(parsedOrderTotal)) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] parsedOrderTotal is NaN; skipping order entry',
           order,
         );
         return null;
       }
       if (isNaN(parsedDate.valueOf())) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] parsedDate is NaN; skipping order entry',
           order,
         );
@@ -238,6 +253,12 @@ export function getLabelsFromAmazonOrders(
         0,
       );
 
+      const orderLabelElements: LabelElement[] = getAmazonOrderLabelElements({
+        config,
+        items: order.items,
+        url: order.order_url,
+      });
+
       /**
        * Create a label based on the order itself as a fallback in case we can't
        * glean any information from the transaction data
@@ -247,12 +268,12 @@ export function getLabelsFromAmazonOrders(
         amount: -1 * parsedOrderTotal,
         date: order.date,
         id: labelId,
-        memo: order.items,
+        memo: orderLabelElements,
         payee: AMAZON_PAYEE_NAME,
       };
 
       if (transactionData.length === 0) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] no viable transactions from payment data. Bailing on using transaction data.',
           {order, transactionData},
         );
@@ -260,7 +281,7 @@ export function getLabelsFromAmazonOrders(
       }
 
       if (transactionDataTotal !== parsedOrderTotal) {
-        console.warn(
+        console.debug(
           '[getLabelsFromAmazonOrders] transaction data from order did not add up to order total. Bailing on using transaction data.',
           {parsedOrderTotal, transactionData},
         );
@@ -268,16 +289,22 @@ export function getLabelsFromAmazonOrders(
       }
 
       return (transactionData as TransactionDataNonNullable[]).map(
-        (transaction, i) => {
+        (transaction, i): StandardTransactionTypeWithLabelElements => {
           const transactionId =
             transactionData.length === 1
               ? labelId
               : `${labelId}__${i + 1}_of_${transactionData.length}`;
 
-          const memo =
-            transactionData.length === 1
-              ? order.items
-              : `(charge ${i + 1}/${transactionData.length}) ` + order.items;
+          const memo: LabelElement[] = [
+            transactionData.length > 1
+              ? {
+                  flexShrink: 0,
+                  onOverflow: ON_TRUNCATE_TYPES.omit,
+                  value: `(charge ${i + 1}/${transactionData.length})`,
+                }
+              : null,
+            ...orderLabelElements,
+          ].filter(isNonNullable);
 
           return {
             // The convention for the standard transaction type is that outflows are negative
@@ -294,18 +321,24 @@ export function getLabelsFromAmazonOrders(
   return labelsFromOrdersNullable.filter(isNonNullable);
 }
 
-export function getLabelsFromCsv(csvText: string): StandardTransactionType[] {
-  return convertParsedLabelsToStandardTransaction(
-    getParsedLabelsFromCsv(csvText),
-  );
-}
+// export function getLabelsFromCsv(
+//   csvText: string,
+// ): StandardTransactionTypeWithLabelElements[] {
+//   return convertParsedLabelsToStandardTransaction(
+//     getParsedLabelsFromCsv(csvText),
+//   );
+// }
 
 export function convertParsedLabelsToStandardTransaction(
   parsedLabels: ParsedLabelsTyped,
-): StandardTransactionType[] {
+  config: ConvertParsedLabelConfig,
+): StandardTransactionTypeWithLabelElements[] {
   switch (parsedLabels._type) {
     case 'amazon': {
-      return getLabelsFromAmazonOrders(parsedLabels.labels);
+      return getLabelsFromAmazonOrders(
+        parsedLabels.labels,
+        config.amazonConfig,
+      );
     }
     case 'ynab': {
       return convertYnabCsvToStandardTransaction(parsedLabels.labels);
@@ -313,21 +346,37 @@ export function convertParsedLabelsToStandardTransaction(
   }
 }
 
-export function convertYnabToStandardTransaction(
+export function convertYnabTransactionToStandardTransactionWithLabelElements(
+  ynabTransaction: TransactionDetail,
+): StandardTransactionTypeWithLabelElements {
+  return {
+    amount: ynab.utils.convertMilliUnitsToCurrencyAmount(
+      ynabTransaction.amount,
+    ),
+    date: ynabTransaction.date,
+    id: ynabTransaction.id,
+    memo: [
+      {
+        flexShrink: 0,
+        onOverflow: ON_TRUNCATE_TYPES.truncate,
+        value: ynabTransaction.memo ?? '',
+      },
+    ],
+    payee: ynabTransaction.payee_name ?? '',
+  };
+}
+
+export function convertYnabTransactionArrayToStandardTransactionWithLabelElements(
   ynabTransactions: TransactionDetail[],
-): StandardTransactionType[] {
-  return ynabTransactions.map((t) => ({
-    amount: ynab.utils.convertMilliUnitsToCurrencyAmount(t.amount),
-    date: t.date,
-    id: t.id,
-    memo: t.memo ?? '',
-    payee: t.payee_name ?? '',
-  }));
+): StandardTransactionTypeWithLabelElements[] {
+  return ynabTransactions.map(
+    convertYnabTransactionToStandardTransactionWithLabelElements,
+  );
 }
 
 export function convertYnabCsvToStandardTransaction(
   ynabCsvTransactions: YnabCsvTransactionType[],
-): StandardTransactionType[] {
+): StandardTransactionTypeWithLabelElements[] {
   return ynabCsvTransactions.map((t) => {
     // TODO: This is pretty janky. Surely there must be a better way?
     // Right now we need parseLocaleNumber for numbers in csv that contain thousands separators (e.g. comma in the US), which can't be parsed by Number()
@@ -339,7 +388,13 @@ export function convertYnabCsvToStandardTransaction(
       amount: amount,
       date: t.date,
       id: uuidv4(),
-      memo: t.memo,
+      memo: [
+        {
+          flexShrink: 0,
+          onOverflow: ON_TRUNCATE_TYPES.truncate,
+          value: t.memo ?? '',
+        },
+      ],
       payee: t.payee,
     };
   });

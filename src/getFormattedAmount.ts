@@ -7,5 +7,5 @@ const USDFormat = Intl.NumberFormat(undefined, {
 });
 
 export default function getFormattedAmount(amount: number): string {
-  return USDFormat.format(amount);
+  return USDFormat.format(Object.is(amount, -0) ? 0 : amount);
 }

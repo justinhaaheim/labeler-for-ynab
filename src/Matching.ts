@@ -1,4 +1,4 @@
-import type {StandardTransactionType} from './LabelTypes';
+import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {TransactionDetail} from 'ynab';
 
 import * as ynab from 'ynab';
@@ -7,16 +7,22 @@ import isNonNullable from './isNonNullable';
 
 export type MatchCandidate = {
   candidates: TransactionDetail[];
-  label: StandardTransactionType;
+  label: StandardTransactionTypeWithLabelElements;
 };
 
 export type LabelTransactionMatch = {
-  label: StandardTransactionType;
+  label: StandardTransactionTypeWithLabelElements;
   transactionMatch: TransactionDetail | null;
 };
 
 export type LabelTransactionMatchNonNullable = {
-  label: StandardTransactionType;
+  label: StandardTransactionTypeWithLabelElements;
+  transactionMatch: TransactionDetail;
+};
+
+export type LabelTransactionMatchFinalized = {
+  label: StandardTransactionTypeWithLabelElements;
+  newMemo: string;
   transactionMatch: TransactionDetail;
 };
 
@@ -28,7 +34,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const MAXIMUM_MATCH_DISTANCE_MS = 10 * DAY_IN_MS;
 
 export function getMatchCandidatesForLabel(
-  label: StandardTransactionType,
+  label: StandardTransactionTypeWithLabelElements,
   ynabTransactions: TransactionDetail[],
   shouldLog?: boolean,
 ): TransactionDetailWithDateDiff[] {
@@ -104,7 +110,7 @@ export function getMatchCandidatesForLabel(
  * @returns
  */
 export function getMatchCandidatesForAllLabels(
-  labels: StandardTransactionType[],
+  labels: StandardTransactionTypeWithLabelElements[],
   ynabTransactions: TransactionDetail[],
 ): MatchCandidate[] {
   console.debug('⭐ [getMatchCandidatesForAllLabels]');
@@ -155,8 +161,10 @@ export function resolveBestMatchForLabels(
 }
 
 export function getTransactionByID(
-  transactions: StandardTransactionType[] | TransactionDetail[],
+  transactions:
+    | StandardTransactionTypeWithLabelElements[]
+    | TransactionDetail[],
   id: string,
-): StandardTransactionType | TransactionDetail | null {
+): StandardTransactionTypeWithLabelElements | TransactionDetail | null {
   return transactions.find((t) => t.id === id) ?? null;
 }

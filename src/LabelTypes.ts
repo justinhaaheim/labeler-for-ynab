@@ -1,3 +1,5 @@
+import type {LabelElement} from './LabelElements';
+
 // TODO: Support other names in other locales?
 export const AMAZON_PAYEE_NAME = 'Amazon';
 
@@ -29,13 +31,26 @@ export type AmazonOrdersCsvImportType = {
 //   string
 // >;
 
-export type StandardTransactionType = {
+export interface StandardTransactionType {
   amount: number;
   date: string;
   id: string;
   memo: string;
   payee: string;
-};
+}
+// TODO NEXT: Write a converter between StandardTransactionTypeWithLabelElements and StandardTransactionType so that we can easily render the non-finalized matches into a table
+export interface StandardTransactionTypeWithLabelElements {
+  amount: number;
+  date: string;
+  id: string;
+  memo: LabelElement[];
+  payee: string;
+}
+
+export interface AmazonTransactionType
+  extends StandardTransactionTypeWithLabelElements {
+  orderURL: string | null;
+}
 
 export const YNAB_CSV_IMPORT_KEYS = [
   'amount',

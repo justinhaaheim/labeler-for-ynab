@@ -1,4 +1,4 @@
-import type {StandardTransactionType} from './LabelTypes';
+import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 
 import {Typography} from '@mui/joy';
 import Divider from '@mui/joy/Divider';
@@ -7,9 +7,10 @@ import ListItemContent from '@mui/joy/ListItemContent';
 import React from 'react';
 
 import getFormattedAmount from './getFormattedAmount';
+import {renderLabel} from './LabelElements';
 
 type Props = {
-  transactions: StandardTransactionType[];
+  transactions: StandardTransactionTypeWithLabelElements[];
 };
 
 export default function TransactionListItems({
@@ -28,7 +29,9 @@ export default function TransactionListItems({
       <ListItem endAction={getFormattedAmount(t.amount)}>
         <ListItemContent>
           <Typography level="title-sm">{`[${t.date}] ${t.payee}`}</Typography>
-          <Typography level="body-sm">{t.memo}</Typography>
+          <Typography level="body-sm">
+            {renderLabel(t.memo, Infinity)}
+          </Typography>
         </ListItemContent>
       </ListItem>
       {i !== transactions.length - 1 && <Divider />}
