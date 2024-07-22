@@ -131,8 +131,13 @@ export default function InputFileUpload({
                 'load',
                 () => {
                   // this will then display a text file
-                  const fileText = reader.result as string;
-                  console.debug('File text', fileText);
+                  const fileText = reader.result;
+
+                  if (typeof fileText !== 'string') {
+                    throw new Error(
+                      'FileReader().readAsText() did not return a string',
+                    );
+                  }
 
                   const newParsedLabels = getParsedLabelsFromCsv(fileText);
                   setLabelData(newParsedLabels);

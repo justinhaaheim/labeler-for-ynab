@@ -49,15 +49,38 @@ type RenderLabelElementsConfig = {
 
 export const SEPARATOR_BEFORE_LABEL = '@@';
 
+export const ELLIPSIS = '…';
+
 export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
 const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
 
-const ENABLE_DEBUG_LOGGING = false;
+const ENABLE_DEBUG_LOGGING = true;
 const log = ENABLE_DEBUG_LOGGING ? console.debug.bind(console) : () => {};
 
 function trimElementValues(elements: LabelElement[]): LabelElement[] {
   return elements.map((e) => ({...e, value: e.value.trim()}));
+}
+
+function truncateString(s: string, charsToReduce: number): string {
+  if (charsToReduce >= s.length) {
+    return '';
+  }
+
+  const slicedString = s.slice(0, -1 * (charsToReduce + ELLIPSIS.length));
+
+  const newValue = slicedString.trim() + ELLIPSIS;
+
+  log(`🔍 Shrinking element ${s}`, {
+    /* eslint-disable sort-keys-fix/sort-keys-fix */
+    before: s,
+    after_: newValue,
+    charsToReduce,
+    stringLength: s.length,
+    /* eslint-enable sort-keys-fix/sort-keys-fix */
+  });
+
+  return newValue;
 }
 
 function renderLabelNoLimit(elements: LabelElement[]): string {
@@ -129,6 +152,18 @@ function renderLabelElementsWithStrategy(
     ).length;
     const charsToReduce = currentLength - lengthLimit;
 
+    // console.debug(
+    //   `🔍 Processing elements in reverse order: #${
+    //     elementsToProcessReversed.length - 1 - i
+    //   } ${e.value}`,
+    //   {
+    //     charsToReduce,
+    //     currentElementsInOrder,
+    //     currentElementsInOrderTransformed,
+    //     currentLength,
+    //   },
+    // );
+
     if (charsToReduce <= 0) {
       // We're under the limit, so we're done
       break;
@@ -140,20 +175,14 @@ function renderLabelElementsWithStrategy(
     }
 
     if (mode === 'shrink' && e.flexShrink > 0) {
-      const newValue = e.value.slice(0, -charsToReduce);
-      log(`🔍 Shrinking element ${e.value}`, {
-        /* eslint-disable sort-keys-fix/sort-keys-fix */
-        before: e.value,
-        after_: newValue,
-        /* eslint-enable sort-keys-fix/sort-keys-fix */
-      });
+      const newValue = truncateString(e.value, charsToReduce);
       newElementsReversed[i] = {...e, value: newValue};
       continue;
     }
 
     if (mode === 'handle-overflow') {
       const newValue =
-        e.onOverflow === 'omit' ? '' : e.value.slice(0, -charsToReduce);
+        e.onOverflow === 'omit' ? '' : truncateString(e.value, charsToReduce);
       log(`🔍 Handling overflow for element ${e.value}`, {
         /* eslint-disable sort-keys-fix/sort-keys-fix */
         before: e.value,

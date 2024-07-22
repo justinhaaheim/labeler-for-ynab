@@ -1,6 +1,6 @@
 import {type LabelElement, renderLabel} from './LabelElements';
 
-describe('renders a basical label predictably', () => {
+describe('renders a basic label predictably', () => {
   const baseElements: LabelElement[] = [
     {flexShrink: 0, onOverflow: 'truncate', value: 'what is this?'}, // original memo
     {flexShrink: 0, onOverflow: 'omit', value: '@@'}, // divider
@@ -27,15 +27,18 @@ describe('renders a basical label predictably', () => {
 
   it('truncates shrinkable elements first', () => {
     const expectedOutput =
-      'what is this? @@ M (charge 1 of 3) Anker 4-port char https://www.example.com/';
+      'what is this? @@ M (charge 1 of 3) Anker 4-port cha… https://www.example.com/';
     // length 77 should remove 3 characters from "Anker 4-port charger"
     expect(renderLabel(baseElements, 77)).toBe(expectedOutput);
   });
 
   it('omits elements when they cannot be included in their entirety', () => {
     // The item name is sacrificed first because it's shrinkable
+    expect(renderLabel(baseElements, 62)).toBe(
+      'what is this? @@ M (charge 1 of 3) A… https://www.example.com/',
+    );
     expect(renderLabel(baseElements, 61)).toBe(
-      'what is this? @@ M (charge 1 of 3) A https://www.example.com/',
+      'what is this? @@ M (charge 1 of 3) … https://www.example.com/',
     );
     // When the item name is '' there should be no additional gap added for that element
     expect(renderLabel(baseElements, 60)).toBe(
@@ -52,13 +55,16 @@ describe('renders a basical label predictably', () => {
     // Once we've taken out an element marked with onOverflow: 'omit', try and meet the rest
     // of the limit with shrinking
     expect(renderLabel(baseElements, 45)).toBe(
-      'what is this? @@ M (charge 1 of 3) Anker 4-po',
+      'what is this? @@ M (charge 1 of 3) Anker 4-p…',
     );
 
     // When we reach the (charge 1 of 3) element and have to omit it, we should
     // fill in the remaining space with shrinkable elements
     expect(renderLabel(baseElements, 33)).toBe(
-      'what is this? @@ M Anker 4-port c',
+      'what is this? @@ M Anker 4-port…',
+    );
+    expect(renderLabel(baseElements, 32)).toBe(
+      'what is this? @@ M Anker 4-port…',
     );
   });
 });
@@ -111,19 +117,19 @@ describe('renders a markdown label predictably', () => {
 
   it('truncates shrinkable elements first', () => {
     const length133Output =
-      '@@ [Sony MDR7506 Professional Large Diaphragm Headphone](https://amzn.com/gp/your-account/order-details/?orderID=114-8644243-5542622)';
+      '@@ [Sony MDR7506 Professional Large Diaphragm Headphon…](https://amzn.com/gp/your-account/order-details/?orderID=114-8644243-5542622)';
     // length 133 should remove the semicolon from the product name
     expect(renderLabel(baseElements, 133)).toBe(length133Output);
   });
 
   it('handles trailing whitespace predictably', () => {
-    const length123Output =
-      '@@ [Sony MDR7506 Professional Large Diaphragm](https://amzn.com/gp/your-account/order-details/?orderID=114-8644243-5542622)';
-    // length 124 should shrink it to "...Large Diaphragm ", but then the final space will be trimmed so it will be the same as 123
-    expect(renderLabel(baseElements, 124)).toBe(length123Output);
+    const length124Output =
+      '@@ [Sony MDR7506 Professional Large Diaphragm…](https://amzn.com/gp/your-account/order-details/?orderID=114-8644243-5542622)';
+    // length 125 should shrink it to "...Large Diaphragm H", but then the final character will be converted to an ellipsis and the whitespace will be trimmed between Diaphragm and the ellipsis, so it's the same as trimming to 124 chars
+    expect(renderLabel(baseElements, 125)).toBe(length124Output);
 
     // length 124 should shrink it to "...Large Diaphragm ", but then the final space will be trimmed.
-    expect(renderLabel(baseElements, 123)).toBe(length123Output);
+    expect(renderLabel(baseElements, 124)).toBe(length124Output);
   });
 
   it('shrinks the item names entirely before omitting items with flexShrink = 0', () => {

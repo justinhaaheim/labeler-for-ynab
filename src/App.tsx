@@ -204,11 +204,14 @@ function App() {
         return true;
       });
 
-      return renderFinalizedMatches({
+      const newFinalizedMatches = renderFinalizedMatches({
         // TODO: Write a function to assert the nonNullable type
         finalizedMatches: matchesFiltered as LabelTransactionMatchNonNullable[],
         prefix: labelPrefix,
       });
+
+      console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
+      return newFinalizedMatches;
     }, [
       finalizedMatches,
       labelPrefix,
@@ -507,7 +510,6 @@ function App() {
                               _event: React.SyntheticEvent | null,
                               newValue: string | null,
                             ) => {
-                              // console.log(event);
                               const newBudgetID = newValue;
                               if (selectedBudgetID !== newBudgetID) {
                                 console.debug(
@@ -542,10 +544,9 @@ function App() {
                           </FormLabel>
                           <Select
                             onChange={(
-                              event: React.SyntheticEvent | null,
+                              _event: React.SyntheticEvent | null,
                               newValue: string | null,
                             ) => {
-                              console.log(event);
                               const newAccountID = newValue;
                               if (selectedAccountID !== newAccountID) {
                                 console.debug(
