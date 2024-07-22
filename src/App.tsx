@@ -981,6 +981,7 @@ function App() {
             Reauthorize
           </Button>
         }
+        invertedColors
         onClose={(_event, reason) => {
           if (reason === 'clickaway') {
             // Ignore clickaway
@@ -995,7 +996,7 @@ function App() {
           <Typography level="title-md">
             YNAB authorization has expired. Please reauthorize.
           </Typography>
-          <Typography level="body-sm" textColor="text.primary">
+          <Typography level="body-sm">
             Note: you will lose any work on this page when you reauthorize.
             Please download update logs before leaving the page.
           </Typography>
