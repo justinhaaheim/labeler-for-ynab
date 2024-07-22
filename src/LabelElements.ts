@@ -55,7 +55,7 @@ export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
 const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
 
-const ENABLE_DEBUG_LOGGING = true;
+const ENABLE_DEBUG_LOGGING = false;
 const log = ENABLE_DEBUG_LOGGING ? console.debug.bind(console) : () => {};
 
 function trimElementValues(elements: LabelElement[]): LabelElement[] {
