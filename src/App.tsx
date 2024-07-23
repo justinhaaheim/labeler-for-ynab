@@ -71,6 +71,7 @@ import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
 import {
   budgetCompareFunctionForSort,
+  clearTokenStorage,
   getYNABApi,
   getYNABErrorHandler,
 } from './YnabHelpers';
@@ -103,29 +104,38 @@ function App() {
     setYnabApi(null);
     setYnabToken(null);
     setYnabTokenExpirationTimestamp(null);
+
+    clearTokenStorage();
+
     if (tokenExpirationTimeoutRef.current != null) {
       clearTimeout(tokenExpirationTimeoutRef.current);
       tokenExpirationTimeoutRef.current = null;
     }
   }, []);
 
+  // Attempt to get the YNAB token
   if (ynabApi == null && ynabTokenUnavailable === false) {
     console.debug('📡 Initializing YNAB API: Looking for token...');
-    const {token, tokenExpirationTimestamp, api} = getYNABApi();
+    const {token, tokenExpirationTimestamp, api: newApi} = getYNABApi();
+    // console.debug({newApi, token, tokenExpirationTimestamp});
 
-    setYnabToken(token);
-    setYnabApi(api);
-    setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
+    if (token != null && newApi != null) {
+      setYnabToken(token);
+      setYnabApi(newApi);
+      setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
 
-    if (token != null && tokenExpirationTimestamp != null) {
-      const delayMS = tokenExpirationTimestamp - Date.now();
-      tokenExpirationTimeoutRef.current = setTimeout(() => {
-        console.log('⏰ YNAB token has expired');
-        onAuthError();
-      }, delayMS);
-    }
-
-    if (token == null) {
+      if (tokenExpirationTimestamp != null) {
+        const delayMS = tokenExpirationTimestamp - Date.now();
+        tokenExpirationTimeoutRef.current = setTimeout(() => {
+          console.log('⏰ YNAB token has expired');
+          onAuthError();
+        }, delayMS);
+      } else {
+        console.warn(
+          '⏰ YNAB token has no expiration timestamp. This should not happen',
+        );
+      }
+    } else {
       console.warn('📡🚫 Unable to connect to YNAB: No token.');
       setYNABTokenUnavailable(true);
     }
