@@ -4,6 +4,8 @@ import type {API, SaveTransactionWithIdOrImportId} from 'ynab';
 
 import {v4 as uuidv4} from 'uuid';
 
+import isNonNullable from './isNonNullable';
+
 export const MAXIMUM_YNAB_MEMO_LENGTH = 200;
 
 export const UPDATE_TYPE_PRETTY_STRING = {
@@ -66,31 +68,36 @@ export async function syncLabelsToYnab({
   let updateLogs: UpdateLogEntryInProgressV1[] = [];
 
   const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] =
-    finalizedMatches.map((match) => {
-      const ynabTransactionToUpdate = match.transactionMatch;
+    finalizedMatches
+      .map((match) => {
+        if (match.transactionMatch == null) {
+          return null;
+        }
 
-      //
-      const newMemo = match.newMemo;
+        const ynabTransactionToUpdate = match.transactionMatch;
 
-      console.debug({
-        newMemo,
-        newMemoLength: newMemo.length,
-      });
+        const newMemo = match.newMemo;
 
-      updateLogs.push({
-        id: ynabTransactionToUpdate.id,
-        label: match.label.memo,
-        method: 'append-label',
-        newMemo: newMemo,
-        // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
-        previousMemo: ynabTransactionToUpdate.memo,
-      });
+        console.debug({
+          newMemo,
+          newMemoLength: newMemo.length,
+        });
 
-      return {
-        id: ynabTransactionToUpdate.id,
-        memo: newMemo,
-      };
-    });
+        updateLogs.push({
+          id: ynabTransactionToUpdate.id,
+          label: match.label.memo,
+          method: 'append-label',
+          newMemo: newMemo,
+          // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
+          previousMemo: ynabTransactionToUpdate.memo,
+        });
+
+        return {
+          id: ynabTransactionToUpdate.id,
+          memo: newMemo,
+        };
+      })
+      .filter(isNonNullable);
 
   console.debug('saveTransactionsToExecute', saveTransactionsToExecute);
   console.debug('updateLogs', updateLogs);

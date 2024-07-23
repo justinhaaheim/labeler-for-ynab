@@ -18,6 +18,12 @@ const TOKEN_EXPIRATION_REDUCTION_MS = 1000 * 60;
 
 const YNAB_ACCESS_TOKEN_URL_HASH_KEY = 'access_token';
 
+export function clearTokenStorage(): void {
+  console.debug('Clearing YNAB token from session storage');
+  sessionStorage.removeItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
+  sessionStorage.removeItem(YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY);
+}
+
 export function getYNABApi(): APIInfo {
   // Check for the YNAB token provided when we're redirected back from the YNAB OAuth page
   let token = null;
@@ -61,18 +67,48 @@ export function getYNABApi(): APIInfo {
     window.history.replaceState(null, '', newURL.toString());
   } else {
     // Otherwise try sessionStorage
-    token = sessionStorage.getItem(YNAB_TOKEN_LOCAL_STORAGE_KEY);
+    const tokenFromStorage = sessionStorage.getItem(
+      YNAB_TOKEN_LOCAL_STORAGE_KEY,
+    );
     const tokenExpirationFromStorage = sessionStorage.getItem(
       YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY,
     );
-    tokenExpirationTimestamp =
+
+    const tokenExpirationTimestampFromStorage =
       tokenExpirationFromStorage == null
         ? null
         : Number(tokenExpirationFromStorage);
-    console.debug('YNAB token retrieved from session storage:', {
-      token,
-      tokenExpirationTimestamp,
-    });
+
+    const tokenIsExpired =
+      tokenExpirationTimestampFromStorage != null &&
+      tokenExpirationTimestampFromStorage - Date.now() <= 0;
+
+    // Only use the token from storage if both token and timestamp are nonnull and the token is not expired
+    if (
+      tokenFromStorage != null &&
+      tokenExpirationTimestampFromStorage != null &&
+      !tokenIsExpired
+    ) {
+      token = tokenFromStorage;
+      tokenExpirationTimestamp = tokenExpirationTimestampFromStorage;
+
+      console.debug('YNAB token retrieved from session storage:', {
+        token,
+        tokenExpirationTimestamp,
+      });
+    } else {
+      if (
+        tokenFromStorage == null &&
+        tokenExpirationTimestampFromStorage == null
+      ) {
+        console.debug('No YNAB token found in session storage.');
+      } else {
+        if (tokenIsExpired) {
+          console.debug('YNAB token from storage is expired.');
+        }
+        clearTokenStorage();
+      }
+    }
   }
 
   return {

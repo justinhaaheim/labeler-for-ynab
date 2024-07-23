@@ -3,7 +3,9 @@ import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {
   LabelTransactionMatchFinalized,
-  LabelTransactionMatchNonNullable,
+  LabelTransactionMatchWithWarnings,
+  LabelWarning,
+  MatchCandidate,
 } from './Matching';
 import type {UpdateLogChunkV1} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
@@ -53,6 +55,7 @@ import {
 } from './Converters';
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import FinalizedMatchesDataGrid from './FinalizedMatchesDataGrid';
+import {getIsDevMode} from './Flags';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import {
@@ -68,6 +71,7 @@ import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
 import {
   budgetCompareFunctionForSort,
+  clearTokenStorage,
   getYNABApi,
   getYNABErrorHandler,
 } from './YnabHelpers';
@@ -100,29 +104,38 @@ function App() {
     setYnabApi(null);
     setYnabToken(null);
     setYnabTokenExpirationTimestamp(null);
+
+    clearTokenStorage();
+
     if (tokenExpirationTimeoutRef.current != null) {
       clearTimeout(tokenExpirationTimeoutRef.current);
       tokenExpirationTimeoutRef.current = null;
     }
   }, []);
 
+  // Attempt to get the YNAB token
   if (ynabApi == null && ynabTokenUnavailable === false) {
     console.debug('📡 Initializing YNAB API: Looking for token...');
-    const {token, tokenExpirationTimestamp, api} = getYNABApi();
+    const {token, tokenExpirationTimestamp, api: newApi} = getYNABApi();
+    // console.debug({newApi, token, tokenExpirationTimestamp});
 
-    setYnabToken(token);
-    setYnabApi(api);
-    setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
+    if (token != null && newApi != null) {
+      setYnabToken(token);
+      setYnabApi(newApi);
+      setYnabTokenExpirationTimestamp(tokenExpirationTimestamp);
 
-    if (token != null && tokenExpirationTimestamp != null) {
-      const delayMS = tokenExpirationTimestamp - Date.now();
-      tokenExpirationTimeoutRef.current = setTimeout(() => {
-        console.log('⏰ YNAB token has expired');
-        onAuthError();
-      }, delayMS);
-    }
-
-    if (token == null) {
+      if (tokenExpirationTimestamp != null) {
+        const delayMS = tokenExpirationTimestamp - Date.now();
+        tokenExpirationTimeoutRef.current = setTimeout(() => {
+          console.log('⏰ YNAB token has expired');
+          onAuthError();
+        }, delayMS);
+      } else {
+        console.warn(
+          '⏰ YNAB token has no expiration timestamp. This should not happen',
+        );
+      }
+    } else {
       console.warn('📡🚫 Unable to connect to YNAB: No token.');
       setYNABTokenUnavailable(true);
     }
@@ -175,74 +188,79 @@ function App() {
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
 
-  const matchCandidates = useMemo(
-    () =>
-      labelsWithLabelElements == null || transactions == null
-        ? null
-        : getMatchCandidatesForAllLabels(labelsWithLabelElements, transactions),
-    [labelsWithLabelElements, transactions],
-  );
+  const matchCandidates = useMemo<MatchCandidate[] | null>(() => {
+    if (labelsWithLabelElements == null || transactions == null) {
+      return null;
+    }
 
-  const finalizedMatches = useMemo(
-    () =>
-      matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [],
-    [matchCandidates],
-  );
+    // Apply the filters BEFORE we try to match, so that we don't match to a transaction that will be ineligible if there's another possible match
+    const filteredTransactions = transactions.filter((t) => {
+      // Filter this transaction out if we're NOT supposed to apply
+      // to transactions with a nonempty memo, AND the memo is not empty
+      if (
+        labelSyncFilterConfig.omitNonemptyMemo &&
+        (t.memo ?? '').trim().length > 0
+      ) {
+        return false;
+      }
 
-  const finalizedMatchesFiltered: LabelTransactionMatchFinalized[] =
-    useMemo(() => {
-      const matchesFiltered = finalizedMatches.filter((match) => {
+      if (
+        labelSyncFilterConfig.omitAlreadyCategorized &&
+        t.category_id != null
+      ) {
+        return false;
+      }
+
+      if (labelSyncFilterConfig.omitReconciled && t.cleared === 'reconciled') {
+        return false;
+      }
+
+      return true;
+    });
+
+    return getMatchCandidatesForAllLabels(
+      labelsWithLabelElements,
+      filteredTransactions,
+    );
+  }, [
+    labelSyncFilterConfig.omitAlreadyCategorized,
+    labelSyncFilterConfig.omitNonemptyMemo,
+    labelSyncFilterConfig.omitReconciled,
+    labelsWithLabelElements,
+    transactions,
+  ]);
+
+  const finalizedMatches: LabelTransactionMatchFinalized[] = useMemo(() => {
+    if (matchCandidates == null) {
+      return [];
+    }
+
+    const resolvedMatches = resolveBestMatchForLabels(matchCandidates);
+
+    const matchesWithWarnings: LabelTransactionMatchWithWarnings[] =
+      resolvedMatches.map((match) => {
+        const warnings: LabelWarning[] = [];
+
         if (match.transactionMatch == null) {
-          return false;
+          warnings.push({message: 'No matching transaction found.'});
         }
 
-        // Filter this transaction out if we're NOT supposed to apply
-        // to transactions with a nonempty memo, AND the memo is not empty
-        if (
-          labelSyncFilterConfig.omitNonemptyMemo &&
-          (match.transactionMatch.memo ?? '').trim().length > 0
-        ) {
-          return false;
-        }
-
-        if (
-          labelSyncFilterConfig.omitAlreadyCategorized &&
-          match.transactionMatch.category_id != null
-        ) {
-          return false;
-        }
-
-        if (
-          labelSyncFilterConfig.omitReconciled &&
-          match.transactionMatch.cleared === 'reconciled'
-        ) {
-          return false;
-        }
-
-        return true;
+        return {...match, warnings};
       });
 
-      const newFinalizedMatches = renderFinalizedMatches({
-        // TODO: Write a function to assert the nonNullable type
-        finalizedMatches: matchesFiltered as LabelTransactionMatchNonNullable[],
-        prefix: labelPrefix,
-      });
+    const newFinalizedMatches = renderFinalizedMatches({
+      // TODO: Write a function to assert the nonNullable type
+      finalizedMatches: matchesWithWarnings,
+      prefix: labelPrefix,
+    });
 
-      console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
-      return newFinalizedMatches;
-    }, [
-      finalizedMatches,
-      labelPrefix,
-      labelSyncFilterConfig.omitAlreadyCategorized,
-      labelSyncFilterConfig.omitNonemptyMemo,
-      labelSyncFilterConfig.omitReconciled,
-    ]);
+    console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
+    return newFinalizedMatches;
+  }, [matchCandidates, labelPrefix]);
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
   ).length;
-
-  const successfulMatchesThatPassFiltersCount = finalizedMatchesFiltered.length;
 
   /////////////////////////////////////////////////
   // Effects
@@ -406,7 +424,7 @@ function App() {
                         </Button>
                       </Box>
 
-                      {import.meta.env.DEV && (
+                      {getIsDevMode() && (
                         <Box>
                           <Button
                             // disabled={ynabApi != null}
@@ -705,7 +723,7 @@ function App() {
                                 syncLabelsToYnab({
                                   accountID: selectedAccountID,
                                   budgetID: selectedBudgetID,
-                                  finalizedMatches: finalizedMatchesFiltered,
+                                  finalizedMatches: finalizedMatches,
                                   ynabAPI: ynabApi,
                                 })
                                   .then((updateLogs) => {
@@ -749,7 +767,7 @@ function App() {
                   <Box>
                     <Checkbox
                       checked={showAllLabelsAndTransactions}
-                      label="Show all labels, transactions and matches"
+                      label="Show label and transaction match details"
                       onChange={({
                         target: {checked},
                       }: React.ChangeEvent<HTMLInputElement>) =>
@@ -833,18 +851,6 @@ function App() {
                       } labels had no match`}</Typography>
                     </Box>
 
-                    <Box sx={{mb: 2, textAlign: 'start'}}>
-                      <Typography>{`${
-                        matchCandidates == null
-                          ? UNDERSCORE_STRING
-                          : successfulMatchesThatPassFiltersCount
-                      }/${
-                        matchCandidates == null
-                          ? UNDERSCORE_STRING
-                          : successfulMatchesCount
-                      } labels will be synced based on filter criteria`}</Typography>
-                    </Box>
-
                     {updateLogsList.length > 0 && (
                       <Box mt={2}>
                         <Typography level="title-md" sx={{mb: 1}}>
@@ -871,91 +877,86 @@ function App() {
                 <>
                   <Grid container spacing={2}>
                     <Grid xs={12}>
-                      <Typography level="h3" sx={{mb: 2}}>
-                        Labels With No Match
-                      </Typography>
+                      <Box sx={{padding: 1}}>
+                        <Typography level="h3" sx={{mb: 1}}>
+                          Finalized Matches
+                        </Typography>
 
-                      <TransactionDataGrid
-                        // TODO NEXT: Write a converter between Label
-                        transactions={finalizedMatches
-                          .filter((m) => m.transactionMatch == null)
-                          .map((m) =>
-                            renderStandardTransactionFromLabelElements(
-                              m.label,
-                              Infinity,
-                            ),
-                          )}
-                      />
-                    </Grid>
-                  </Grid>
+                        <Typography level="body-sm" sx={{mb: 3}}>
+                          {
+                            'This table shows the labels you provided, the matching YNAB transaction, and the combined YNAB memo + label.'
+                          }
+                        </Typography>
 
-                  <Grid container spacing={2}>
-                    <Grid xs={12}>
-                      <Typography level="h3" sx={{mb: 1}}>
-                        Finalized Matches
-                      </Typography>
-
-                      <Typography level="body-xs" sx={{mb: 3}}>
-                        {
-                          'This table shows the labels you provided (left) and the matching YNAB transaction (abbreviated TXN; right)'
-                        }
-                      </Typography>
+                        <Typography level="body-sm">{`${
+                          finalizedMatches.length
+                        } labels | ${
+                          finalizedMatches.filter(
+                            (m) => m.transactionMatch != null,
+                          ).length
+                        } labels matched to a YNAB transaction | ${
+                          finalizedMatches.filter((m) => m.warnings.length > 0)
+                            .length
+                        } items with warnings`}</Typography>
+                      </Box>
 
                       <Sheet>
                         <FinalizedMatchesDataGrid
-                          finalizedMatches={finalizedMatchesFiltered}
+                          finalizedMatches={finalizedMatches}
                           size="sm"
                         />
                       </Sheet>
                     </Grid>
                   </Grid>
 
-                  <Grid container spacing={2}>
-                    <Grid xs={6}>
-                      <Typography level="h3" sx={{mb: 2}}>
-                        Transactions
-                      </Typography>
+                  {getIsDevMode() && (
+                    <Grid container spacing={2}>
+                      <Grid xs={6}>
+                        <Typography level="h3" sx={{mb: 2}}>
+                          Labels
+                        </Typography>
 
-                      <Typography>{`${
-                        transactions?.length ?? 0
-                      } transactions fetched`}</Typography>
+                        <Typography>{`${
+                          labelsWithLabelElements?.length ?? 0
+                        } labels loaded`}</Typography>
 
-                      {transactions != null && (
-                        <TransactionDataGrid
-                          size="sm"
-                          transactions={transactions.map((t) =>
-                            renderStandardTransactionFromLabelElements(
-                              convertYnabTransactionToStandardTransactionWithLabelElements(
-                                t,
+                        {labelsWithLabelElements != null && (
+                          <TransactionDataGrid
+                            size="sm"
+                            transactions={labelsWithLabelElements.map((l) =>
+                              renderStandardTransactionFromLabelElements(
+                                l,
+                                MAXIMUM_YNAB_MEMO_LENGTH,
                               ),
-                            ),
-                          )}
-                        />
-                      )}
+                            )}
+                          />
+                        )}
+                      </Grid>
+
+                      <Grid xs={6}>
+                        <Typography level="h3" sx={{mb: 2}}>
+                          Transactions
+                        </Typography>
+
+                        <Typography>{`${
+                          transactions?.length ?? 0
+                        } transactions fetched`}</Typography>
+
+                        {transactions != null && (
+                          <TransactionDataGrid
+                            size="sm"
+                            transactions={transactions.map((t) =>
+                              renderStandardTransactionFromLabelElements(
+                                convertYnabTransactionToStandardTransactionWithLabelElements(
+                                  t,
+                                ),
+                              ),
+                            )}
+                          />
+                        )}
+                      </Grid>
                     </Grid>
-
-                    <Grid xs={6}>
-                      <Typography level="h3" sx={{mb: 2}}>
-                        Labels
-                      </Typography>
-
-                      <Typography>{`${
-                        labelsWithLabelElements?.length ?? 0
-                      } labels loaded`}</Typography>
-
-                      {labelsWithLabelElements != null && (
-                        <TransactionDataGrid
-                          size="sm"
-                          transactions={labelsWithLabelElements.map((l) =>
-                            renderStandardTransactionFromLabelElements(
-                              l,
-                              MAXIMUM_YNAB_MEMO_LENGTH,
-                            ),
-                          )}
-                        />
-                      )}
-                    </Grid>
-                  </Grid>
+                  )}
                 </>
               )
             }
