@@ -58,7 +58,7 @@ const columns: GridColumnDef[] = [
     field: 'transactionDate',
     getValue: (m) =>
       m.transactionMatch != null ? m.transactionMatch.date ?? '' : '-',
-    headerName: 'YNAB TXN Date',
+    headerName: 'Matching YNAB TXN Date',
     sx: {width: '10em'},
     truncatable: false,
   },
@@ -66,7 +66,7 @@ const columns: GridColumnDef[] = [
     field: 'transactionPayee',
     getValue: (m) =>
       m.transactionMatch != null ? m.transactionMatch.payee_name ?? '' : '-',
-    headerName: 'YNAB TXN Payee',
+    headerName: 'Matching YNAB TXN Payee',
     sx: {width: '9em'},
   },
   // {
@@ -78,7 +78,7 @@ const columns: GridColumnDef[] = [
   {
     field: 'newMemo',
     getValue: (m) => m.newMemo,
-    headerName: 'New YNAB TXN Memo',
+    headerName: 'YNAB Memo + Label',
     // sx: {width: '40%'},
   },
   {
@@ -99,7 +99,7 @@ const columns: GridColumnDef[] = [
       );
     },
     headerName: 'Warnings',
-    sx: {width: '10em'},
+    sx: {width: '14em'},
   },
 ];
 

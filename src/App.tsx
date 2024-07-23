@@ -55,6 +55,7 @@ import {
 } from './Converters';
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import FinalizedMatchesDataGrid from './FinalizedMatchesDataGrid';
+import {getIsDevMode} from './Flags';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import {
@@ -219,40 +220,37 @@ function App() {
     transactions,
   ]);
 
-  const finalizedMatches = useMemo(
-    () =>
-      matchCandidates != null ? resolveBestMatchForLabels(matchCandidates) : [],
-    [matchCandidates],
-  );
+  const finalizedMatches: LabelTransactionMatchFinalized[] = useMemo(() => {
+    if (matchCandidates == null) {
+      return [];
+    }
 
-  const finalizedMatchesFiltered: LabelTransactionMatchFinalized[] =
-    useMemo(() => {
-      const matchesWithWarnings: LabelTransactionMatchWithWarnings[] =
-        finalizedMatches.map((match) => {
-          const warnings: LabelWarning[] = [];
+    const resolvedMatches = resolveBestMatchForLabels(matchCandidates);
 
-          if (match.transactionMatch == null) {
-            warnings.push({message: 'No matching transaction found.'});
-          }
+    const matchesWithWarnings: LabelTransactionMatchWithWarnings[] =
+      resolvedMatches.map((match) => {
+        const warnings: LabelWarning[] = [];
 
-          return {...match, warnings};
-        });
+        if (match.transactionMatch == null) {
+          warnings.push({message: 'No matching transaction found.'});
+        }
 
-      const newFinalizedMatches = renderFinalizedMatches({
-        // TODO: Write a function to assert the nonNullable type
-        finalizedMatches: matchesWithWarnings,
-        prefix: labelPrefix,
+        return {...match, warnings};
       });
 
-      console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
-      return newFinalizedMatches;
-    }, [finalizedMatches, labelPrefix]);
+    const newFinalizedMatches = renderFinalizedMatches({
+      // TODO: Write a function to assert the nonNullable type
+      finalizedMatches: matchesWithWarnings,
+      prefix: labelPrefix,
+    });
+
+    console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
+    return newFinalizedMatches;
+  }, [matchCandidates, labelPrefix]);
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,
   ).length;
-
-  const successfulMatchesThatPassFiltersCount = finalizedMatchesFiltered.length;
 
   /////////////////////////////////////////////////
   // Effects
@@ -416,7 +414,7 @@ function App() {
                         </Button>
                       </Box>
 
-                      {import.meta.env.DEV && (
+                      {getIsDevMode() && (
                         <Box>
                           <Button
                             // disabled={ynabApi != null}
@@ -715,7 +713,7 @@ function App() {
                                 syncLabelsToYnab({
                                   accountID: selectedAccountID,
                                   budgetID: selectedBudgetID,
-                                  finalizedMatches: finalizedMatchesFiltered,
+                                  finalizedMatches: finalizedMatches,
                                   ynabAPI: ynabApi,
                                 })
                                   .then((updateLogs) => {
@@ -759,7 +757,7 @@ function App() {
                   <Box>
                     <Checkbox
                       checked={showAllLabelsAndTransactions}
-                      label="Show all labels, transactions and matches"
+                      label="Show label and transaction match details"
                       onChange={({
                         target: {checked},
                       }: React.ChangeEvent<HTMLInputElement>) =>
@@ -843,18 +841,6 @@ function App() {
                       } labels had no match`}</Typography>
                     </Box>
 
-                    <Box sx={{mb: 2, textAlign: 'start'}}>
-                      <Typography>{`${
-                        matchCandidates == null
-                          ? UNDERSCORE_STRING
-                          : successfulMatchesThatPassFiltersCount
-                      }/${
-                        matchCandidates == null
-                          ? UNDERSCORE_STRING
-                          : successfulMatchesCount
-                      } labels will be synced based on filter criteria`}</Typography>
-                    </Box>
-
                     {updateLogsList.length > 0 && (
                       <Box mt={2}>
                         <Typography level="title-md" sx={{mb: 1}}>
@@ -881,91 +867,86 @@ function App() {
                 <>
                   <Grid container spacing={2}>
                     <Grid xs={12}>
-                      <Typography level="h3" sx={{mb: 2}}>
-                        Labels With No Match
-                      </Typography>
+                      <Box sx={{padding: 1}}>
+                        <Typography level="h3" sx={{mb: 1}}>
+                          Finalized Matches
+                        </Typography>
 
-                      <TransactionDataGrid
-                        // TODO NEXT: Write a converter between Label
-                        transactions={finalizedMatches
-                          .filter((m) => m.transactionMatch == null)
-                          .map((m) =>
-                            renderStandardTransactionFromLabelElements(
-                              m.label,
-                              Infinity,
-                            ),
-                          )}
-                      />
-                    </Grid>
-                  </Grid>
+                        <Typography level="body-sm" sx={{mb: 3}}>
+                          {
+                            'This table shows the labels you provided, the matching YNAB transaction, and the combined YNAB memo + label.'
+                          }
+                        </Typography>
 
-                  <Grid container spacing={2}>
-                    <Grid xs={12}>
-                      <Typography level="h3" sx={{mb: 1}}>
-                        Finalized Matches
-                      </Typography>
-
-                      <Typography level="body-xs" sx={{mb: 3}}>
-                        {
-                          'This table shows the labels you provided (left) and the matching YNAB transaction (abbreviated TXN; right)'
-                        }
-                      </Typography>
+                        <Typography level="body-sm">{`${
+                          finalizedMatches.length
+                        } labels | ${
+                          finalizedMatches.filter(
+                            (m) => m.transactionMatch != null,
+                          ).length
+                        } labels matched to a YNAB transaction | ${
+                          finalizedMatches.filter((m) => m.warnings.length > 0)
+                            .length
+                        } items with warnings`}</Typography>
+                      </Box>
 
                       <Sheet>
                         <FinalizedMatchesDataGrid
-                          finalizedMatches={finalizedMatchesFiltered}
+                          finalizedMatches={finalizedMatches}
                           size="sm"
                         />
                       </Sheet>
                     </Grid>
                   </Grid>
 
-                  <Grid container spacing={2}>
-                    <Grid xs={6}>
-                      <Typography level="h3" sx={{mb: 2}}>
-                        Transactions
-                      </Typography>
+                  {getIsDevMode() && (
+                    <Grid container spacing={2}>
+                      <Grid xs={6}>
+                        <Typography level="h3" sx={{mb: 2}}>
+                          Labels
+                        </Typography>
 
-                      <Typography>{`${
-                        transactions?.length ?? 0
-                      } transactions fetched`}</Typography>
+                        <Typography>{`${
+                          labelsWithLabelElements?.length ?? 0
+                        } labels loaded`}</Typography>
 
-                      {transactions != null && (
-                        <TransactionDataGrid
-                          size="sm"
-                          transactions={transactions.map((t) =>
-                            renderStandardTransactionFromLabelElements(
-                              convertYnabTransactionToStandardTransactionWithLabelElements(
-                                t,
+                        {labelsWithLabelElements != null && (
+                          <TransactionDataGrid
+                            size="sm"
+                            transactions={labelsWithLabelElements.map((l) =>
+                              renderStandardTransactionFromLabelElements(
+                                l,
+                                MAXIMUM_YNAB_MEMO_LENGTH,
                               ),
-                            ),
-                          )}
-                        />
-                      )}
+                            )}
+                          />
+                        )}
+                      </Grid>
+
+                      <Grid xs={6}>
+                        <Typography level="h3" sx={{mb: 2}}>
+                          Transactions
+                        </Typography>
+
+                        <Typography>{`${
+                          transactions?.length ?? 0
+                        } transactions fetched`}</Typography>
+
+                        {transactions != null && (
+                          <TransactionDataGrid
+                            size="sm"
+                            transactions={transactions.map((t) =>
+                              renderStandardTransactionFromLabelElements(
+                                convertYnabTransactionToStandardTransactionWithLabelElements(
+                                  t,
+                                ),
+                              ),
+                            )}
+                          />
+                        )}
+                      </Grid>
                     </Grid>
-
-                    <Grid xs={6}>
-                      <Typography level="h3" sx={{mb: 2}}>
-                        Labels
-                      </Typography>
-
-                      <Typography>{`${
-                        labelsWithLabelElements?.length ?? 0
-                      } labels loaded`}</Typography>
-
-                      {labelsWithLabelElements != null && (
-                        <TransactionDataGrid
-                          size="sm"
-                          transactions={labelsWithLabelElements.map((l) =>
-                            renderStandardTransactionFromLabelElements(
-                              l,
-                              MAXIMUM_YNAB_MEMO_LENGTH,
-                            ),
-                          )}
-                        />
-                      )}
-                    </Grid>
-                  </Grid>
+                  )}
                 </>
               )
             }
