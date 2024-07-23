@@ -7,7 +7,6 @@ import Table from '@mui/joy/Table';
 import {useState} from 'react';
 
 import getFormattedAmount from './getFormattedAmount';
-import {renderLabel} from './LabelElements';
 
 type Props = {
   // label: string;
@@ -41,12 +40,12 @@ const columns: GridColumnDef[] = [
     sx: {width: '8em'},
     truncatable: false,
   },
-  {
-    field: 'labelMemo',
-    getValue: (m) => renderLabel(m.label.memo, Infinity),
-    headerName: 'Label Text',
-    sx: {width: '15em'},
-  },
+  // {
+  //   field: 'labelMemo',
+  //   getValue: (m) => renderLabel(m.label.memo, Infinity),
+  //   headerName: 'Label Text',
+  //   sx: {width: '15em'},
+  // },
   {
     field: 'labelAmount',
     getValue: (m) => getFormattedAmount(m.label.amount),
@@ -57,14 +56,16 @@ const columns: GridColumnDef[] = [
   },
   {
     field: 'transactionDate',
-    getValue: (m) => m.transactionMatch.date ?? '',
+    getValue: (m) =>
+      m.transactionMatch != null ? m.transactionMatch.date ?? '' : '-',
     headerName: 'YNAB TXN Date',
     sx: {width: '10em'},
     truncatable: false,
   },
   {
     field: 'transactionPayee',
-    getValue: (m) => m.transactionMatch.payee_name ?? '',
+    getValue: (m) =>
+      m.transactionMatch != null ? m.transactionMatch.payee_name ?? '' : '-',
     headerName: 'YNAB TXN Payee',
     sx: {width: '9em'},
   },

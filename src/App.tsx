@@ -3,7 +3,9 @@ import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {
   LabelTransactionMatchFinalized,
-  LabelTransactionMatchNonNullable,
+  LabelTransactionMatchWithWarnings,
+  LabelWarning,
+  MatchCandidate,
 } from './Matching';
 import type {UpdateLogChunkV1} from './Sync';
 import type {YNABErrorType} from './YnabHelpers';
@@ -175,13 +177,47 @@ function App() {
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
     useState<boolean>(false);
 
-  const matchCandidates = useMemo(
-    () =>
-      labelsWithLabelElements == null || transactions == null
-        ? null
-        : getMatchCandidatesForAllLabels(labelsWithLabelElements, transactions),
-    [labelsWithLabelElements, transactions],
-  );
+  const matchCandidates = useMemo<MatchCandidate[] | null>(() => {
+    if (labelsWithLabelElements == null || transactions == null) {
+      return null;
+    }
+
+    // Apply the filters BEFORE we try to match, so that we don't match to a transaction that will be ineligible if there's another possible match
+    const filteredTransactions = transactions.filter((t) => {
+      // Filter this transaction out if we're NOT supposed to apply
+      // to transactions with a nonempty memo, AND the memo is not empty
+      if (
+        labelSyncFilterConfig.omitNonemptyMemo &&
+        (t.memo ?? '').trim().length > 0
+      ) {
+        return false;
+      }
+
+      if (
+        labelSyncFilterConfig.omitAlreadyCategorized &&
+        t.category_id != null
+      ) {
+        return false;
+      }
+
+      if (labelSyncFilterConfig.omitReconciled && t.cleared === 'reconciled') {
+        return false;
+      }
+
+      return true;
+    });
+
+    return getMatchCandidatesForAllLabels(
+      labelsWithLabelElements,
+      filteredTransactions,
+    );
+  }, [
+    labelSyncFilterConfig.omitAlreadyCategorized,
+    labelSyncFilterConfig.omitNonemptyMemo,
+    labelSyncFilterConfig.omitReconciled,
+    labelsWithLabelElements,
+    transactions,
+  ]);
 
   const finalizedMatches = useMemo(
     () =>
@@ -191,52 +227,26 @@ function App() {
 
   const finalizedMatchesFiltered: LabelTransactionMatchFinalized[] =
     useMemo(() => {
-      const matchesFiltered = finalizedMatches.filter((match) => {
-        if (match.transactionMatch == null) {
-          return false;
-        }
+      const matchesWithWarnings: LabelTransactionMatchWithWarnings[] =
+        finalizedMatches.map((match) => {
+          const warnings: LabelWarning[] = [];
 
-        // Filter this transaction out if we're NOT supposed to apply
-        // to transactions with a nonempty memo, AND the memo is not empty
-        if (
-          labelSyncFilterConfig.omitNonemptyMemo &&
-          (match.transactionMatch.memo ?? '').trim().length > 0
-        ) {
-          return false;
-        }
+          if (match.transactionMatch == null) {
+            warnings.push({message: 'No matching transaction found.'});
+          }
 
-        if (
-          labelSyncFilterConfig.omitAlreadyCategorized &&
-          match.transactionMatch.category_id != null
-        ) {
-          return false;
-        }
-
-        if (
-          labelSyncFilterConfig.omitReconciled &&
-          match.transactionMatch.cleared === 'reconciled'
-        ) {
-          return false;
-        }
-
-        return true;
-      });
+          return {...match, warnings};
+        });
 
       const newFinalizedMatches = renderFinalizedMatches({
         // TODO: Write a function to assert the nonNullable type
-        finalizedMatches: matchesFiltered as LabelTransactionMatchNonNullable[],
+        finalizedMatches: matchesWithWarnings,
         prefix: labelPrefix,
       });
 
       console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
       return newFinalizedMatches;
-    }, [
-      finalizedMatches,
-      labelPrefix,
-      labelSyncFilterConfig.omitAlreadyCategorized,
-      labelSyncFilterConfig.omitNonemptyMemo,
-      labelSyncFilterConfig.omitReconciled,
-    ]);
+    }, [finalizedMatches, labelPrefix]);
 
   const successfulMatchesCount = finalizedMatches.filter(
     (match) => match.transactionMatch != null,

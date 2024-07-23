@@ -4,8 +4,7 @@ import type {
 } from './LabelTypes';
 import type {
   LabelTransactionMatchFinalized,
-  LabelTransactionMatchNonNullable,
-  LabelWarning,
+  LabelTransactionMatchWithWarnings,
 } from './Matching';
 
 import repeatString from './repeatString';
@@ -283,7 +282,7 @@ export function renderLabel(
 }
 
 type RenderFinalizedMatchesConfig = {
-  finalizedMatches: LabelTransactionMatchNonNullable[];
+  finalizedMatches: LabelTransactionMatchWithWarnings[];
   prefix: string;
 };
 
@@ -292,9 +291,9 @@ export function renderFinalizedMatches({
   prefix,
 }: RenderFinalizedMatchesConfig): LabelTransactionMatchFinalized[] {
   return finalizedMatches.map((match) => {
-    const warnings: LabelWarning[] = [];
+    const newWarnings = match.warnings.slice();
 
-    const transactionMemo = match.transactionMatch.memo ?? '';
+    const transactionMemo = match.transactionMatch?.memo ?? '';
     const charsRemainingForLabel =
       MAXIMUM_YNAB_MEMO_LENGTH - transactionMemo.length;
     const labelFullLength = renderLabelNoLimit(match.label.memo).length;
@@ -304,13 +303,13 @@ export function renderFinalizedMatches({
       charsRemainingForLabel <=
         REMAINING_CHARS_AVAILABLE_FOR_LABEL_WARNING_THRESHOLD
     ) {
-      warnings.push({
+      newWarnings.push({
         message: `Insufficient space to add label. ${charsRemainingForLabel} characters available for label.`,
       });
     }
 
     if (transactionMemo.includes(SEPARATOR_BEFORE_LABEL)) {
-      warnings.push({
+      newWarnings.push({
         message: `Transaction appears to already be labeled.`,
       });
     }
@@ -321,7 +320,7 @@ export function renderFinalizedMatches({
         {
           flexShrink: 0,
           onOverflow: ON_TRUNCATE_TYPES.truncate,
-          value: match.transactionMatch.memo ?? '',
+          value: transactionMemo,
         },
 
         // divider
@@ -336,7 +335,7 @@ export function renderFinalizedMatches({
       // TODO: Maybe take this in as a function arg rather than assuming 200 here
       MAXIMUM_YNAB_MEMO_LENGTH,
     );
-    return {...match, newMemo, warnings};
+    return {...match, newMemo, warnings: newWarnings};
   });
 }
 
