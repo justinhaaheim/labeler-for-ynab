@@ -5,6 +5,7 @@ import type {
 import type {
   LabelTransactionMatchFinalized,
   LabelTransactionMatchNonNullable,
+  LabelWarning,
 } from './Matching';
 
 import repeatString from './repeatString';
@@ -54,6 +55,8 @@ export const ELLIPSIS = '…';
 export const SPACE = ' ';
 const DEFAULT_GAP_LENGTH = 1;
 const DEFAULT_GAP = repeatString(SPACE, DEFAULT_GAP_LENGTH);
+
+const REMAINING_CHARS_AVAILABLE_FOR_LABEL_WARNING_THRESHOLD = 15;
 
 const ENABLE_DEBUG_LOGGING = false;
 const log = ENABLE_DEBUG_LOGGING ? console.debug.bind(console) : () => {};
@@ -289,6 +292,29 @@ export function renderFinalizedMatches({
   prefix,
 }: RenderFinalizedMatchesConfig): LabelTransactionMatchFinalized[] {
   return finalizedMatches.map((match) => {
+    const warnings: LabelWarning[] = [];
+
+    const transactionMemo = match.transactionMatch.memo ?? '';
+    const charsRemainingForLabel =
+      MAXIMUM_YNAB_MEMO_LENGTH - transactionMemo.length;
+    const labelFullLength = renderLabelNoLimit(match.label.memo).length;
+
+    if (
+      labelFullLength > charsRemainingForLabel &&
+      charsRemainingForLabel <=
+        REMAINING_CHARS_AVAILABLE_FOR_LABEL_WARNING_THRESHOLD
+    ) {
+      warnings.push({
+        message: `Insufficient space to add label. ${charsRemainingForLabel} characters available for label.`,
+      });
+    }
+
+    if (transactionMemo.includes(SEPARATOR_BEFORE_LABEL)) {
+      warnings.push({
+        message: `Transaction appears to already be labeled.`,
+      });
+    }
+
     const newMemo = renderLabel(
       [
         // YNAB transaction memo
@@ -310,7 +336,7 @@ export function renderFinalizedMatches({
       // TODO: Maybe take this in as a function arg rather than assuming 200 here
       MAXIMUM_YNAB_MEMO_LENGTH,
     );
-    return {...match, newMemo};
+    return {...match, newMemo, warnings};
   });
 }
 

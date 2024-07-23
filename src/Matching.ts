@@ -20,10 +20,16 @@ export type LabelTransactionMatchNonNullable = {
   transactionMatch: TransactionDetail;
 };
 
+export interface LabelWarning {
+  // _type: string;
+  message: string;
+}
+
 export type LabelTransactionMatchFinalized = {
   label: StandardTransactionTypeWithLabelElements;
   newMemo: string;
   transactionMatch: TransactionDetail;
+  warnings: LabelWarning[];
 };
 
 type TransactionDetailWithDateDiff = TransactionDetail & {

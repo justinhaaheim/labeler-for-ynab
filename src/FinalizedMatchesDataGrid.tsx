@@ -1,6 +1,8 @@
 import type {LabelTransactionMatchFinalized} from './Matching';
 
+import Box from '@mui/joy/Box';
 import Sheet from '@mui/joy/Sheet';
+import Stack from '@mui/joy/Stack';
 import Table from '@mui/joy/Table';
 import {useState} from 'react';
 
@@ -15,8 +17,7 @@ type Props = {
 
 type GridColumnDef = {
   field: string;
-  formatter?: (value: any) => string;
-  getValue: (match: LabelTransactionMatchFinalized) => number | string;
+  getValue: (match: LabelTransactionMatchFinalized) => React.ReactNode;
   headerName: string;
   sx?: Record<string, number | string>;
   // textAlign?: 'center' | 'end' | 'start';
@@ -48,8 +49,7 @@ const columns: GridColumnDef[] = [
   },
   {
     field: 'labelAmount',
-    formatter: (amountNumber: number) => getFormattedAmount(amountNumber),
-    getValue: (m) => m.label.amount,
+    getValue: (m) => getFormattedAmount(m.label.amount),
     // Label Amount and Transaction amount should be identical, so let's just show one
     headerName: 'Amount',
     sx: {textAlign: 'end', width: '7em'},
@@ -79,6 +79,26 @@ const columns: GridColumnDef[] = [
     getValue: (m) => m.newMemo,
     headerName: 'New YNAB TXN Memo',
     // sx: {width: '40%'},
+  },
+  {
+    field: 'warnings',
+    getValue: (m) => {
+      if (m.warnings.length <= 1) {
+        return m.warnings[0]?.message ?? '';
+      }
+
+      return (
+        <Stack spacing={0.5}>
+          {m.warnings.map((w, i) => (
+            <Box sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{`${
+              i + 1
+            }) ${w.message}`}</Box>
+          ))}
+        </Stack>
+      );
+    },
+    headerName: 'Warnings',
+    sx: {width: '10em'},
   },
 ];
 
@@ -178,9 +198,7 @@ export default function FinalizedMatchesDataGrid({
                         : ROW_NO_WRAP_STYLE),
                       ...(col.sx ?? {}),
                     }}>
-                    {col.formatter != null
-                      ? col.formatter(col.getValue(finalizedMatch))
-                      : col.getValue(finalizedMatch)}
+                    {col.getValue(finalizedMatch)}
                   </td>
                 ))}
               </tr>
