@@ -361,6 +361,8 @@ function App() {
   return (
     <>
       <Box
+        component="main"
+        role="main"
         sx={{
           alignItems: 'center',
           display: 'flex',
