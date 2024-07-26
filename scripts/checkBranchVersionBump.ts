@@ -26,7 +26,7 @@ const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
   encoding: 'utf8',
 }).trim();
 
-// console.log('Current branch: ' + currentBranch);
+console.log('Current branch: ' + currentBranch);
 
 if (currentBranch === MAIN_BRANCH_NAME) {
   console.log(`On ${MAIN_BRANCH_NAME} branch. Skipping version comparison.`);
@@ -38,7 +38,7 @@ execSync('git fetch origin main');
 
 // Relative to the directory from which this script is run
 const packageJsonMainBranchString = execSync(
-  `git show ${MAIN_BRANCH_NAME}:./package.json`,
+  `git show origin/${MAIN_BRANCH_NAME}:./package.json`,
   {
     encoding: 'utf8',
   },
