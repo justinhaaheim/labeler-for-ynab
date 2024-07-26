@@ -10,6 +10,18 @@ import packageJson from '../package.json';
 
 const MAIN_BRANCH_NAME = 'main';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getPackageVersion(branch: string): string {
+  try {
+    const packageJson = execSync(`git show ${branch}:package.json`).toString();
+    const version = JSON.parse(packageJson).version;
+    return version;
+  } catch (error) {
+    console.error(`Error reading package.json from ${branch}:`, error);
+    process.exit(1);
+  }
+}
+
 const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
   encoding: 'utf8',
 }).trim();
@@ -20,6 +32,9 @@ if (currentBranch === MAIN_BRANCH_NAME) {
   console.log(`On ${MAIN_BRANCH_NAME} branch. Skipping version comparison.`);
   process.exit(0);
 }
+
+// Fetch the latest changes from the remote
+execSync('git fetch origin main');
 
 // Relative to the directory from which this script is run
 const packageJsonMainBranchString = execSync(
