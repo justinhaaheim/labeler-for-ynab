@@ -56,6 +56,7 @@ import {
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import FinalizedMatchesDataGrid from './FinalizedMatchesDataGrid';
 import {getIsDevMode} from './Flags';
+import {getBooleanParamFlag} from './getParamFlag';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import {
@@ -87,6 +88,8 @@ type LabelSyncFilterConfig = {
 
 function App() {
   const {mode} = useColorScheme();
+
+  const enableBudgetExport = getBooleanParamFlag('enableExport', false);
 
   const [_ynabToken, setYnabToken] = useState<string | null>(null);
   const [ynabTokenExpirationTimestamp, setYnabTokenExpirationTimestamp] =
@@ -500,23 +503,25 @@ function App() {
                         </FormControl>
                       </Box>
 
-                      {ynabApi != null && selectedBudgetID != null && (
-                        <Box>
-                          <Button
-                            disabled={
-                              ynabApi == null || selectedBudgetID == null
-                            }
-                            onClick={() =>
-                              downloadAllBudgetData({
-                                budgetID: selectedBudgetID,
-                                ynabApi,
-                              })
-                            }
-                            variant="solid">
-                            Download Full Budget Backup
-                          </Button>
-                        </Box>
-                      )}
+                      {enableBudgetExport &&
+                        ynabApi != null &&
+                        selectedBudgetID != null && (
+                          <Box>
+                            <Button
+                              disabled={
+                                ynabApi == null || selectedBudgetID == null
+                              }
+                              onClick={() =>
+                                downloadAllBudgetData({
+                                  budgetID: selectedBudgetID,
+                                  ynabApi,
+                                })
+                              }
+                              variant="solid">
+                              Download Full Budget Backup (json)
+                            </Button>
+                          </Box>
+                        )}
 
                       <Box sx={{minWidth: 240}}>
                         <FormControl
