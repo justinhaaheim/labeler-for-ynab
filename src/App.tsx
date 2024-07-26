@@ -964,6 +964,16 @@ function App() {
             }
           </Stack>
         </Sheet>
+
+        <Typography
+          component="div"
+          level="body-xs"
+          sx={{
+            marginY: 1,
+            opacity: 0.5,
+          }}>
+          {`v${packageJson.version}`}
+        </Typography>
       </Box>
 
       <Snackbar
@@ -1002,19 +1012,6 @@ function App() {
           </Typography>
         </Box>
       </Snackbar>
-
-      <Typography
-        component="div"
-        sx={{
-          bottom: '2px',
-          fontSize: 12,
-          left: '50%',
-          opacity: 0.1,
-          position: 'absolute',
-          transform: 'translateX(-50%)',
-        }}>
-        {`v${packageJson.version}`}
-      </Typography>
     </>
   );
 }
