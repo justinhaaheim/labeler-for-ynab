@@ -20,6 +20,7 @@ import CardActions from '@mui/joy/CardActions';
 import CardContent from '@mui/joy/CardContent';
 import CardOverflow from '@mui/joy/CardOverflow';
 import Checkbox from '@mui/joy/Checkbox';
+import CircularProgress from '@mui/joy/CircularProgress';
 import Divider from '@mui/joy/Divider';
 import FormControl from '@mui/joy/FormControl';
 import FormLabel from '@mui/joy/FormLabel';
@@ -144,6 +145,9 @@ function App() {
       setYNABTokenUnavailable(true);
     }
   }
+
+  const [isBudgetExportInProgress, setIsBudgetExportInProgress] =
+    useState<boolean>(false);
 
   const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
@@ -511,11 +515,25 @@ function App() {
                               disabled={
                                 ynabApi == null || selectedBudgetID == null
                               }
-                              onClick={() =>
-                                downloadAllBudgetData({
-                                  budgetID: selectedBudgetID,
-                                  ynabApi,
-                                })
+                              onClick={async () => {
+                                setIsBudgetExportInProgress(true);
+                                try {
+                                  await downloadAllBudgetData({
+                                    budgetID: selectedBudgetID,
+                                    ynabApi,
+                                  });
+                                } catch (error: unknown) {
+                                  console.error(
+                                    'Error downloading budget data',
+                                    error,
+                                  );
+                                }
+                                setIsBudgetExportInProgress(false);
+                              }}
+                              startDecorator={
+                                isBudgetExportInProgress ? (
+                                  <CircularProgress variant="solid" />
+                                ) : null
                               }
                               variant="solid">
                               Download Full Budget Backup (json)
