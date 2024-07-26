@@ -53,7 +53,7 @@ export async function getAllBudgetData({
       user: user.data.user,
       budget: budget.data.budget,
     };
-    /* eslint-disable sort-keys-fix/sort-keys-fix */
+    /* eslint-enable sort-keys-fix/sort-keys-fix */
   } catch (error) {
     console.error('Error getting all budget data:', error);
     return null;
