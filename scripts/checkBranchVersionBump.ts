@@ -34,7 +34,7 @@ if (currentBranch === MAIN_BRANCH_NAME) {
 }
 
 // Fetch the latest changes from the remote
-execSync('git fetch origin main');
+// execSync('git fetch origin main');
 
 // Relative to the directory from which this script is run
 const packageJsonMainBranchString = execSync(
