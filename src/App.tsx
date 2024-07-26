@@ -356,6 +356,32 @@ function App() {
     //   });
   }, []);
 
+  const getFullBudgetData = useCallback(
+    async (budgetID: string) => {
+      if (ynabApi == null) {
+        console.error(
+          '🚫 Unable to get full budget data: No YNAB API available',
+        );
+        return null;
+      }
+
+      const user = await ynabApi.user.getUser();
+      const accounts = await ynabApi.accounts.getAccounts(budgetID);
+      const categories = await ynabApi.categories.getCategories(budgetID);
+      const payees = await ynabApi.payees.getPayees(budgetID);
+      const payeeLocations =
+        await ynabApi.payeeLocations.getPayeeLocations(budgetID);
+      const budgetMonths = await ynabApi.months.getBudgetMonths(budgetID);
+      const transactions = await ynabApi.transactions.getTransactions(budgetID);
+      const scheduledTransactions =
+        await ynabApi.scheduledTransactions.getScheduledTransactions(budgetID);
+
+      const result = {budgets: budgets};
+      return result;
+    },
+    [budgets, ynabApi],
+  );
+
   const cardStyle = useMemo(() => ({width: '100%'}), []);
 
   return (
@@ -497,6 +523,17 @@ function App() {
                           </Select>
                         </FormControl>
                       </Box>
+
+                      {selectedBudgetID != null && (
+                        <Box>
+                          <Button
+                            disabled={ynabApi != null}
+                            onClick={() => {}}
+                            variant="solid">
+                            Download Full Budget Backup
+                          </Button>
+                        </Box>
+                      )}
 
                       <Box sx={{minWidth: 240}}>
                         <FormControl
