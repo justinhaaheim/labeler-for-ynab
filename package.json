@@ -23,7 +23,8 @@
     "test-silent": "jest --silent",
     "ts-check": "tsc --noEmit",
     "ts-check-masked": "npm run ts-check",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "check-branch-version-bump": "tsx scripts/checkBranchVersionBump.ts"
   },
   "dependencies": {
     "@emotion/react": "11.11.4",
