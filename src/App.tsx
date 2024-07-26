@@ -69,6 +69,7 @@ import {
 import {MAXIMUM_YNAB_MEMO_LENGTH, syncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
+import {downloadAllBudgetData} from './YNABExport';
 import {
   budgetCompareFunctionForSort,
   clearTokenStorage,
@@ -346,6 +347,7 @@ function App() {
     const uri = `https://app.ynab.com/oauth/authorize?client_id=${
       config.clientId
     }&redirect_uri=${redirectUri.toString()}&response_type=token`;
+    // TODO: Use history api
     window.location.replace(uri);
     // fetch(uri, {method: 'GET', mode: 'no-cors'})
     //   .then((response) => {
@@ -355,32 +357,6 @@ function App() {
     //     console.debug('error', error);
     //   });
   }, []);
-
-  const getFullBudgetData = useCallback(
-    async (budgetID: string) => {
-      if (ynabApi == null) {
-        console.error(
-          '🚫 Unable to get full budget data: No YNAB API available',
-        );
-        return null;
-      }
-
-      const user = await ynabApi.user.getUser();
-      const accounts = await ynabApi.accounts.getAccounts(budgetID);
-      const categories = await ynabApi.categories.getCategories(budgetID);
-      const payees = await ynabApi.payees.getPayees(budgetID);
-      const payeeLocations =
-        await ynabApi.payeeLocations.getPayeeLocations(budgetID);
-      const budgetMonths = await ynabApi.months.getBudgetMonths(budgetID);
-      const transactions = await ynabApi.transactions.getTransactions(budgetID);
-      const scheduledTransactions =
-        await ynabApi.scheduledTransactions.getScheduledTransactions(budgetID);
-
-      const result = {budgets: budgets};
-      return result;
-    },
-    [budgets, ynabApi],
-  );
 
   const cardStyle = useMemo(() => ({width: '100%'}), []);
 
@@ -524,11 +500,18 @@ function App() {
                         </FormControl>
                       </Box>
 
-                      {selectedBudgetID != null && (
+                      {ynabApi != null && selectedBudgetID != null && (
                         <Box>
                           <Button
-                            disabled={ynabApi != null}
-                            onClick={() => {}}
+                            disabled={
+                              ynabApi == null || selectedBudgetID == null
+                            }
+                            onClick={() =>
+                              downloadAllBudgetData({
+                                budgetID: selectedBudgetID,
+                                ynabApi,
+                              })
+                            }
                             variant="solid">
                             Download Full Budget Backup
                           </Button>
@@ -800,8 +783,6 @@ function App() {
                       </CardActions>
                     </CardOverflow>
                   </Card>
-
-                  <Box></Box>
 
                   <Box>
                     <Checkbox

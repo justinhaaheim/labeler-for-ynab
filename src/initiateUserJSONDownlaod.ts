@@ -33,16 +33,3 @@ export default function initiateUserJSONDownload(
   link.remove();
   URL.revokeObjectURL(objectURL);
 }
-
-// export default function initiateUserJSONDownload(
-//   filename: string,
-//   jsonObject: unknown,
-// ): void {
-
-//   var a = document.createElement('a');
-//   a.href = URL.createObjectURL(
-//     new Blob([jsonObject], {type: 'application/json'}),
-//   );
-//   a.download = 'myFile.json';
-//   a.click();
-// }
