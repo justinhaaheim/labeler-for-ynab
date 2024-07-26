@@ -79,6 +79,7 @@ import {
 const UNDERSCORE_STRING = '__';
 
 type LabelSyncFilterConfig = {
+  omitAlreadyApproved: boolean;
   omitAlreadyCategorized: boolean;
   omitNonemptyMemo: boolean;
   omitReconciled: boolean;
@@ -174,7 +175,8 @@ function App() {
 
   const [labelSyncFilterConfig, setLabelSyncFilterConfig] =
     useState<LabelSyncFilterConfig>({
-      omitAlreadyCategorized: true,
+      omitAlreadyApproved: true,
+      omitAlreadyCategorized: false,
       omitNonemptyMemo: false,
       omitReconciled: true,
     });
@@ -215,6 +217,10 @@ function App() {
         return false;
       }
 
+      if (labelSyncFilterConfig.omitAlreadyApproved && t.approved) {
+        return false;
+      }
+
       return true;
     });
 
@@ -223,6 +229,7 @@ function App() {
       filteredTransactions,
     );
   }, [
+    labelSyncFilterConfig.omitAlreadyApproved,
     labelSyncFilterConfig.omitAlreadyCategorized,
     labelSyncFilterConfig.omitNonemptyMemo,
     labelSyncFilterConfig.omitReconciled,
@@ -662,6 +669,22 @@ function App() {
                                 setLabelSyncFilterConfig((prev) => ({
                                   ...prev,
                                   omitAlreadyCategorized: e.target.checked,
+                                }))
+                              }
+                            />
+                          </ListItem>
+                          <ListItem>
+                            <Checkbox
+                              checked={
+                                labelSyncFilterConfig.omitAlreadyApproved
+                              }
+                              label="Transactions That Are Already Approved"
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                              ) =>
+                                setLabelSyncFilterConfig((prev) => ({
+                                  ...prev,
+                                  omitAlreadyApproved: e.target.checked,
                                 }))
                               }
                             />

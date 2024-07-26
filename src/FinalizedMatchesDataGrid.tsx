@@ -91,9 +91,11 @@ const columns: GridColumnDef[] = [
       return (
         <Stack spacing={0.5}>
           {m.warnings.map((w, i) => (
-            <Box sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{`${
-              i + 1
-            }) ${w.message}`}</Box>
+            <Box
+              key={String(i) + w}
+              sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{`${i + 1}) ${
+              w.message
+            }`}</Box>
           ))}
         </Stack>
       );
