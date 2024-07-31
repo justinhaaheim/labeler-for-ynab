@@ -60,6 +60,7 @@ const YEAR_IN_MS = DAY_IN_MS * 365.25;
 // const PAST_DATE_DISTANCE_LIMIT = YEAR_IN_MS * 20;
 
 const MAX_DISTANCE_FROM_CLOSE_DATE = YEAR_IN_MS / 2;
+const AMAZON_HARDCODED_RETURN_DATE_WINDOW_MS = DAY_IN_MS * 61;
 
 function getDateDistance(d1: Date, d2: Date) {
   return Math.abs(+d1 - +d2);
@@ -226,6 +227,7 @@ export function getLabelsFromAmazonOrders(
           : `${id}__${orderIdOngoingOccurrenceCounter[id]}_of_${orderIdTotalOccurrenceCounter[id]})`;
 
       const parsedOrderTotal = parseLocaleNumber(order.total);
+      const parsedRefundTotal = parseLocaleNumber(order.refund);
       const parsedDate = new Date(order.date);
 
       // TODO: For digital orders sometimes the order total is empty, but the payments field contains a date and amount. Use that if possible.
@@ -265,10 +267,12 @@ export function getLabelsFromAmazonOrders(
       });
 
       /**
+       * Order Level Labels - labels that pertain to the order as a whole, rather than to individual transactions
+       *
        * Create a label based on the order itself as a fallback in case we can't
        * glean any information from the transaction data
        */
-      const orderLabel = {
+      const orderLabel: StandardTransactionTypeWithLabelElements = {
         // The convention for the standard transaction type is that outflows are negative
         amount: -1 * parsedOrderTotal,
         date: order.date,
@@ -277,12 +281,42 @@ export function getLabelsFromAmazonOrders(
         payee: AMAZON_PAYEE_NAME,
       };
 
+      /**
+       * Refunds are tricky, because we don't currently have access to return transaction data.
+       * For now, let's just add a label for the refund amount if it exists.
+       */
+      let refundLabel: StandardTransactionTypeWithLabelElements | null = null;
+
+      if (!isNaN(parsedRefundTotal) && parsedRefundTotal > 0) {
+        refundLabel = {
+          // This should be a positive number
+          amount: parsedRefundTotal,
+          // This is tricky... we don't actually have the date for the refund. And since returns are often made > 2 weeks we will likely miss matches
+          date: order.date,
+          id: `${labelId}__return`,
+          memo: [
+            {
+              flexShrink: 0,
+              onOverflow: ON_TRUNCATE_TYPES.omit,
+              value: '(Return)',
+            },
+            ...orderLabelElements,
+          ],
+          metaData: {
+            dateRangeEnd: new Date(
+              Date.now() + AMAZON_HARDCODED_RETURN_DATE_WINDOW_MS,
+            ),
+          },
+          payee: AMAZON_PAYEE_NAME,
+        };
+      }
+
       if (transactionData.length === 0) {
         console.debug(
           '[getLabelsFromAmazonOrders] no viable transactions from payment data. Bailing on using transaction data.',
           {order, transactionData},
         );
-        return orderLabel;
+        return [orderLabel, refundLabel];
       }
 
       if (
@@ -296,37 +330,40 @@ export function getLabelsFromAmazonOrders(
           '[getLabelsFromAmazonOrders] transaction data from order did not add up to order total. Bailing on using transaction data.',
           {parsedOrderTotal, transactionData, transactionDataTotal},
         );
-        return orderLabel;
+        return [orderLabel, refundLabel];
       }
 
-      return (transactionData as TransactionDataNonNullable[]).map(
-        (transaction, i): StandardTransactionTypeWithLabelElements => {
-          const transactionId =
-            transactionData.length === 1
-              ? labelId
-              : `${labelId}__${i + 1}_of_${transactionData.length}`;
+      const transactionLabels = (
+        transactionData as TransactionDataNonNullable[]
+      ).map((transaction, i): StandardTransactionTypeWithLabelElements => {
+        const transactionId =
+          transactionData.length === 1
+            ? labelId
+            : `${labelId}__${i + 1}_of_${transactionData.length}`;
 
-          const memo: LabelElement[] = [
-            transactionData.length > 1
-              ? {
-                  flexShrink: 0,
-                  onOverflow: ON_TRUNCATE_TYPES.omit,
-                  value: `(charge ${i + 1}/${transactionData.length})`,
-                }
-              : null,
-            ...orderLabelElements,
-          ].filter(isNonNullable);
+        const memo: LabelElement[] = [
+          transactionData.length > 1
+            ? {
+                flexShrink: 0,
+                onOverflow: ON_TRUNCATE_TYPES.omit,
+                value: `(charge ${i + 1}/${transactionData.length})`,
+              }
+            : null,
+          ...orderLabelElements,
+        ].filter(isNonNullable);
 
-          return {
-            // The convention for the standard transaction type is that outflows are negative
-            amount: -1 * transaction.amount,
-            date: getDateString(transaction.date),
-            id: transactionId,
-            memo: memo,
-            payee: AMAZON_PAYEE_NAME,
-          };
-        },
-      );
+        return {
+          // The convention for the standard transaction type is that outflows are negative
+          amount: -1 * transaction.amount,
+          date: getDateString(transaction.date),
+          id: transactionId,
+          memo: memo,
+          payee: AMAZON_PAYEE_NAME,
+        };
+      });
+
+      // NOTE: The transaction labels take the place of the order label, but not the refund label
+      return [refundLabel, ...transactionLabels];
     });
 
   return labelsFromOrdersNullable.filter(isNonNullable);

@@ -6,7 +6,8 @@ import * as ynab from 'ynab';
 import isNonNullable from './isNonNullable';
 
 export type MatchCandidate = {
-  candidates: TransactionDetailWithDateDiff[];
+  // MatchCandidates should not have dateDiff in their type as it's only needed internally for the initial matching
+  candidates: TransactionDetail[];
   label: StandardTransactionTypeWithLabelElements;
 };
 
@@ -67,6 +68,7 @@ export function getMatchCandidatesForLabel(
 
       const labelDate = new Date(label.date);
       const candidateDate = new Date(ynabTransaction.date);
+
       const dateDiff = Math.abs(labelDate.getTime() - candidateDate.getTime());
       shouldLog &&
         console.debug('[getMatchCandidatesForLabel] dateDiff:', {
@@ -74,12 +76,27 @@ export function getMatchCandidatesForLabel(
           dateDiffInDays: dateDiff / DAY_IN_MS,
         });
 
-      if (dateDiff > MAXIMUM_MATCH_DISTANCE_MS) {
-        shouldLog &&
-          console.debug(
-            '[getMatchCandidatesForLabel] candidate is out of date range',
-          );
-        return null;
+      if (label.metaData?.dateRangeEnd != null) {
+        // Only exclude this candidate if it's outside the date range
+        if (
+          candidateDate > new Date(label.metaData.dateRangeEnd) ||
+          candidateDate < labelDate
+        ) {
+          shouldLog &&
+            console.debug(
+              '[getMatchCandidatesForLabel] candidate is out of date range',
+            );
+          return null;
+        }
+      } else {
+        // Exclude the candidate if it's beyond the standard matching max distance
+        if (dateDiff > MAXIMUM_MATCH_DISTANCE_MS) {
+          shouldLog &&
+            console.debug(
+              '[getMatchCandidatesForLabel] candidate is out of date range',
+            );
+          return null;
+        }
       }
 
       shouldLog &&
