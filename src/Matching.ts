@@ -68,13 +68,6 @@ export function getMatchCandidatesForLabel(
       const labelDate = new Date(label.date);
       const candidateDate = new Date(ynabTransaction.date);
       const dateDiff = Math.abs(labelDate.getTime() - candidateDate.getTime());
-      if (ynabTransaction.amount === -74970) {
-        console.log('found!');
-        console.debug('[getMatchCandidatesForLabel] dateDiff:', {
-          dateDiff,
-          dateDiffInDays: dateDiff / DAY_IN_MS,
-        });
-      }
       shouldLog &&
         console.debug('[getMatchCandidatesForLabel] dateDiff:', {
           dateDiff,
