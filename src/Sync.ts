@@ -78,10 +78,10 @@ export async function syncLabelsToYnab({
 
         const newMemo = match.newMemo;
 
-        console.debug({
-          newMemo,
-          newMemoLength: newMemo.length,
-        });
+        // console.debug({
+        //   newMemo,
+        //   newMemoLength: newMemo.length,
+        // });
 
         updateLogs.push({
           id: ynabTransactionToUpdate.id,
