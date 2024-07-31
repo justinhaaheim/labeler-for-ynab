@@ -15,6 +15,7 @@ import * as React from 'react';
 import {type ParsedLabelFormatTypes, PRETTY_NAME_LOOKUP} from './LabelParser';
 
 type Props = CardProps & {
+  duplicateRowsRemoved: number | null;
   fileName: string;
   fileSize: string;
   icon?: React.ReactElement;
@@ -31,6 +32,7 @@ export default function FileUpload({
   labelCount,
   importType,
   importRowsCount,
+  duplicateRowsRemoved,
   progress,
   sx,
   ...other
@@ -69,6 +71,11 @@ export default function FileUpload({
         <Typography level="body-xs">
           {importRowsCount ?? 0} csv rows parsed
         </Typography>
+        {duplicateRowsRemoved != null && duplicateRowsRemoved > 0 && (
+          <Typography level="body-xs">
+            {`${duplicateRowsRemoved} duplicate csv rows ignored`}
+          </Typography>
+        )}
         <Typography level="body-xs">
           {labelCount ?? 0} labels generated
         </Typography>
