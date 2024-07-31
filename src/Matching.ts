@@ -6,7 +6,7 @@ import * as ynab from 'ynab';
 import isNonNullable from './isNonNullable';
 
 export type MatchCandidate = {
-  candidates: TransactionDetail[];
+  candidates: TransactionDetailWithDateDiff[];
   label: StandardTransactionTypeWithLabelElements;
 };
 
@@ -68,6 +68,13 @@ export function getMatchCandidatesForLabel(
       const labelDate = new Date(label.date);
       const candidateDate = new Date(ynabTransaction.date);
       const dateDiff = Math.abs(labelDate.getTime() - candidateDate.getTime());
+      if (ynabTransaction.amount === -74970) {
+        console.log('found!');
+        console.debug('[getMatchCandidatesForLabel] dateDiff:', {
+          dateDiff,
+          dateDiffInDays: dateDiff / DAY_IN_MS,
+        });
+      }
       shouldLog &&
         console.debug('[getMatchCandidatesForLabel] dateDiff:', {
           dateDiff,
@@ -142,24 +149,28 @@ export function resolveBestMatchForLabels(
   for (const {candidates, label} of matchCandidates) {
     let bestTransactionMatch: TransactionDetail | null = null;
 
-    candidates.forEach((candidate) => {
+    for (const candidate of candidates) {
       if (bestTransactionMatch != null) {
         // We already found a good match. Prolly makes sense to break out of this, but I'm not going to do that right now.
-        return;
+        break;
       }
 
       if (alreadyMatchedTransactionIDs.has(candidate.id)) {
         // The transaction has already been matched with another label
-        return;
+        continue;
       }
 
       bestTransactionMatch = candidate;
-    });
+    }
 
     finalizedMatchPairings.push({
       label,
       transactionMatch: bestTransactionMatch,
     });
+
+    if (bestTransactionMatch != null) {
+      alreadyMatchedTransactionIDs.add(bestTransactionMatch.id);
+    }
   }
 
   return finalizedMatchPairings;
