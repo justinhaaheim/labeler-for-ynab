@@ -44,6 +44,10 @@ const ROW_NO_WRAP_STYLE = {
 };
 const ROW_WRAP_STYLE = {whiteSpace: 'pre-wrap'};
 
+const HEADER_STYLE = {
+  cursor: 'pointer',
+};
+
 const columns: Readonly<GridColumnDef[]> = [
   // {field: 'id', headerName: 'ID'},
   {
@@ -141,21 +145,26 @@ export default function FinalizedMatchesDataGrid({
   //   : [{amount: 0, date: '-', id: '-', memo: '-', payee: '-'}];
   const [rowIsWrapped, setRowIsWrapped] = useState<Record<string, boolean>>({});
 
-  const [sortByColumn, setSortByColumn] = useState<ColumnID | null>(null);
+  const [sortByColumn, setSortByColumn] = useState<{
+    ascending: boolean;
+    columnID: ColumnID;
+  } | null>(null);
 
   const data =
     sortByColumn == null
       ? finalizedMatches
       : finalizedMatches.slice().sort((aMatch, bMatch) => {
           // TODO: Not sure if null coalescing to 0 is the best way to handle this
-          const a = fieldGetterLookup[sortByColumn](aMatch) ?? 0;
-          const b = fieldGetterLookup[sortByColumn](bMatch) ?? 0;
+          const a = fieldGetterLookup[sortByColumn.columnID](aMatch) ?? 0;
+          const b = fieldGetterLookup[sortByColumn.columnID](bMatch) ?? 0;
+
+          const orderMultiplier = sortByColumn.ascending ? 1 : -1;
 
           if (a < b) {
-            return -1;
+            return orderMultiplier * -1;
           }
           if (a > b) {
-            return 1;
+            return orderMultiplier * 1;
           }
           return 0;
         });
@@ -199,8 +208,15 @@ export default function FinalizedMatchesDataGrid({
               return (
                 <th
                   key={c.columnID}
-                  onClick={() => setSortByColumn(c.columnID)}
-                  style={{...ROW_WRAP_STYLE, ...c.sx}}>
+                  onClick={() =>
+                    setSortByColumn((prev) => ({
+                      ascending:
+                        prev?.columnID === c.columnID ? !prev.ascending : true,
+                      columnID: c.columnID,
+                    }))
+                  }
+                  role="button"
+                  style={{...HEADER_STYLE, ...ROW_WRAP_STYLE, ...c.sx}}>
                   {c.headerName}
                 </th>
               );
