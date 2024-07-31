@@ -118,7 +118,7 @@ describe('resolveBestMatchForLabels', () => {
 
     const result = resolveBestMatchForLabels(matchCandidates);
 
-    console.log('result:', result);
+    // console.log('result:', result);
     expect(result[0]?.label.id).toContain('1_of_2');
     expect(result[0]?.transactionMatch?.date).toMatch('2023-06-08');
 
