@@ -31,6 +31,10 @@ export type AmazonOrdersCsvImportType = {
 //   string
 // >;
 
+export type LabelMetaData = {
+  dateRangeEnd: Date;
+};
+
 export interface StandardTransactionType {
   amount: number;
   date: string;
@@ -44,6 +48,7 @@ export interface StandardTransactionTypeWithLabelElements {
   date: string;
   id: string;
   memo: LabelElement[];
+  metaData?: LabelMetaData;
   payee: string;
 }
 

@@ -10,14 +10,21 @@ import {
 export const PARSED_LABEL_FORMAT_TYPES = ['amazon', 'ynab'] as const;
 export type ParsedLabelFormatTypes = (typeof PARSED_LABEL_FORMAT_TYPES)[number];
 
+type ParsedLabelsStats = {
+  duplicateRowsRemoved: number;
+  rowsParsed: number;
+};
+
 export type ParsedLabelsTyped =
   | {
       _type: 'amazon';
       labels: AmazonOrdersCsvImportType[];
+      stats: ParsedLabelsStats;
     }
   | {
       _type: 'ynab';
       labels: YnabCsvTransactionType[];
+      stats: ParsedLabelsStats;
     };
 
 export const PRETTY_NAME_LOOKUP: {
@@ -36,6 +43,21 @@ export function isValidAmazonOrderImport(
       Object.prototype.hasOwnProperty.call(parseResult.data[0], key),
     )
   );
+}
+
+export function removeDuplicateAmazonOrderRows(
+  rows: AmazonOrdersCsvImportType[],
+): AmazonOrdersCsvImportType[] {
+  const seenOrderIds = new Set<string>();
+
+  return rows.filter((row) => {
+    if (seenOrderIds.has(row.order_id)) {
+      // console.debug('Found duplicate order row:', {i, row});
+      return false;
+    }
+    seenOrderIds.add(row.order_id);
+    return true;
+  });
 }
 
 function transformHeaderToStandardFormat(header: string): string {
@@ -82,11 +104,20 @@ export function getParsedLabelsFromCsv(csvText: string): ParsedLabelsTyped {
 
   if (isValidAmazonOrderImport(parseResult)) {
     console.debug('CSV import is Amazon format');
+
+    const rows = parseResult.data.filter(
+      (labelRow) => !isDuplicateHeaderRow(labelRow),
+    ) as AmazonOrdersCsvImportType[];
+
+    const rowsWithoutDuplicates = removeDuplicateAmazonOrderRows(rows);
+
     return {
       _type: 'amazon',
-      labels: parseResult.data.filter(
-        (labelRow) => !isDuplicateHeaderRow(labelRow),
-      ) as AmazonOrdersCsvImportType[],
+      labels: rowsWithoutDuplicates,
+      stats: {
+        duplicateRowsRemoved: rows.length - rowsWithoutDuplicates.length,
+        rowsParsed: rows.length,
+      },
     };
   }
 
@@ -95,6 +126,10 @@ export function getParsedLabelsFromCsv(csvText: string): ParsedLabelsTyped {
     return {
       _type: 'ynab',
       labels: parseResult.data as YnabCsvTransactionType[],
+      stats: {
+        duplicateRowsRemoved: 0,
+        rowsParsed: parseResult.data.length,
+      },
     };
   }
 

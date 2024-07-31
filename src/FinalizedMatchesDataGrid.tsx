@@ -14,9 +14,22 @@ type Props = {
   size?: 'lg' | 'md' | 'sm';
 };
 
+const COLUMN_IDS = [
+  'labelDate',
+  'labelAmount',
+  'transactionDate',
+  'transactionPayee',
+  'newMemo',
+  'warnings',
+] as const;
+type ColumnID = (typeof COLUMN_IDS)[number];
+
+type ValueGetter = (match: LabelTransactionMatchFinalized) => unknown;
+
 type GridColumnDef = {
-  field: string;
-  getValue: (match: LabelTransactionMatchFinalized) => React.ReactNode;
+  columnID: ColumnID;
+  getNode: (match: LabelTransactionMatchFinalized) => React.ReactNode;
+  getValue: ValueGetter;
   headerName: string;
   sx?: Record<string, number | string>;
   // textAlign?: 'center' | 'end' | 'start';
@@ -31,10 +44,15 @@ const ROW_NO_WRAP_STYLE = {
 };
 const ROW_WRAP_STYLE = {whiteSpace: 'pre-wrap'};
 
-const columns: GridColumnDef[] = [
+const HEADER_STYLE = {
+  cursor: 'pointer',
+};
+
+const columns: Readonly<GridColumnDef[]> = [
   // {field: 'id', headerName: 'ID'},
   {
-    field: 'labelDate',
+    columnID: 'labelDate',
+    getNode: (m) => m.label.date,
     getValue: (m) => m.label.date,
     headerName: 'Label Date',
     sx: {width: '8em'},
@@ -47,25 +65,28 @@ const columns: GridColumnDef[] = [
   //   sx: {width: '15em'},
   // },
   {
-    field: 'labelAmount',
-    getValue: (m) => getFormattedAmount(m.label.amount),
+    columnID: 'labelAmount',
+    getNode: (m) => getFormattedAmount(m.label.amount),
+    getValue: (m) => m.label.amount,
     // Label Amount and Transaction amount should be identical, so let's just show one
     headerName: 'Amount',
     sx: {textAlign: 'end', width: '7em'},
     truncatable: false,
   },
   {
-    field: 'transactionDate',
-    getValue: (m) =>
+    columnID: 'transactionDate',
+    getNode: (m) =>
       m.transactionMatch != null ? m.transactionMatch.date ?? '' : '-',
+    getValue: (m) => m.transactionMatch?.date,
     headerName: 'Matching YNAB TXN Date',
     sx: {width: '10em'},
     truncatable: false,
   },
   {
-    field: 'transactionPayee',
-    getValue: (m) =>
+    columnID: 'transactionPayee',
+    getNode: (m) =>
       m.transactionMatch != null ? m.transactionMatch.payee_name ?? '' : '-',
+    getValue: (m) => m.transactionMatch?.payee_name,
     headerName: 'Matching YNAB TXN Payee',
     sx: {width: '9em'},
   },
@@ -76,14 +97,15 @@ const columns: GridColumnDef[] = [
   //   // sx: {width: '40%'},
   // },
   {
-    field: 'newMemo',
+    columnID: 'newMemo',
+    getNode: (m) => m.newMemo,
     getValue: (m) => m.newMemo,
     headerName: 'YNAB Memo + Label',
     // sx: {width: '40%'},
   },
   {
-    field: 'warnings',
-    getValue: (m) => {
+    columnID: 'warnings',
+    getNode: (m) => {
       if (m.warnings.length <= 1) {
         return m.warnings[0]?.message ?? '';
       }
@@ -100,20 +122,53 @@ const columns: GridColumnDef[] = [
         </Stack>
       );
     },
+    getValue: (m) => m.warnings.join('; '),
     headerName: 'Warnings',
     sx: {width: '14em'},
   },
-];
+] as const;
+
+const fieldGetterLookup = columns.reduce<Record<ColumnID, ValueGetter>>(
+  (acc, col) => {
+    acc[col.columnID] = col.getValue;
+    return acc;
+  },
+  {} as Record<ColumnID, ValueGetter>,
+);
 
 export default function FinalizedMatchesDataGrid({
   finalizedMatches,
   size = 'md',
 }: Props): React.ReactElement {
-  const data = finalizedMatches;
   // finalizedMatches.length > 0
   //   ? finalizedMatches
   //   : [{amount: 0, date: '-', id: '-', memo: '-', payee: '-'}];
   const [rowIsWrapped, setRowIsWrapped] = useState<Record<string, boolean>>({});
+
+  // TODO: Keep track of the list of columns clicked in order so that we can sort by multiple columns in order
+  const [sortByColumn, setSortByColumn] = useState<{
+    ascending: boolean;
+    columnID: ColumnID;
+  } | null>(null);
+
+  const data =
+    sortByColumn == null
+      ? finalizedMatches
+      : finalizedMatches.slice().sort((aMatch, bMatch) => {
+          // TODO: Not sure if null coalescing to 0 is the best way to handle this
+          const a = fieldGetterLookup[sortByColumn.columnID](aMatch) ?? 0;
+          const b = fieldGetterLookup[sortByColumn.columnID](bMatch) ?? 0;
+
+          const orderMultiplier = sortByColumn.ascending ? 1 : -1;
+
+          if (a < b) {
+            return orderMultiplier * -1;
+          }
+          if (a > b) {
+            return orderMultiplier * 1;
+          }
+          return 0;
+        });
 
   return (
     <Sheet sx={{borderRadius: 'sm', flexShrink: 1}} variant="outlined">
@@ -152,7 +207,17 @@ export default function FinalizedMatchesDataGrid({
           <tr>
             {columns.map((c) => {
               return (
-                <th key={c.headerName} style={{...ROW_WRAP_STYLE, ...c.sx}}>
+                <th
+                  key={c.columnID}
+                  onClick={() =>
+                    setSortByColumn((prev) => ({
+                      ascending:
+                        prev?.columnID === c.columnID ? !prev.ascending : true,
+                      columnID: c.columnID,
+                    }))
+                  }
+                  role="button"
+                  style={{...HEADER_STYLE, ...ROW_WRAP_STYLE, ...c.sx}}>
                   {c.headerName}
                 </th>
               );
@@ -161,7 +226,7 @@ export default function FinalizedMatchesDataGrid({
         </thead>
 
         <tbody>
-          {data.map((finalizedMatch) => {
+          {data.map((finalizedMatch, _rowIndex) => {
             const rowID = finalizedMatch.label.id;
             const rowShouldWrap = rowIsWrapped[rowID] ?? false;
 
@@ -192,7 +257,7 @@ export default function FinalizedMatchesDataGrid({
                     [rowID]: !prev[rowID],
                   }));
                 }}>
-                {columns.map((col) => (
+                {columns.map((col, _colIndex) => (
                   <td
                     key={col.headerName}
                     style={{
@@ -201,7 +266,8 @@ export default function FinalizedMatchesDataGrid({
                         : ROW_NO_WRAP_STYLE),
                       ...(col.sx ?? {}),
                     }}>
-                    {col.getValue(finalizedMatch)}
+                    {/* {colIndex === 0 ? String(rowIndex + 1) + ' ' : null} */}
+                    {col.getNode(finalizedMatch)}
                   </td>
                 ))}
               </tr>

@@ -85,6 +85,11 @@ function truncateString(s: string, charsToReduce: number): string {
   return newValue;
 }
 
+export function isSuspectedAlreadyLabeled(memo: string): boolean {
+  // The separator should always have a space after it, so this helps us avoid false positives where @@ might be in some random string
+  return memo.includes(`${SEPARATOR_BEFORE_LABEL} `);
+}
+
 function renderLabelNoLimit(elements: LabelElement[]): string {
   return elements
     .filter((e) => e.value.length > 0) // Don't render anything if value is empty
@@ -308,7 +313,7 @@ export function renderFinalizedMatches({
       });
     }
 
-    if (transactionMemo.includes(SEPARATOR_BEFORE_LABEL)) {
+    if (isSuspectedAlreadyLabeled(transactionMemo)) {
       newWarnings.push({
         message: `Transaction appears to already be labeled.`,
       });

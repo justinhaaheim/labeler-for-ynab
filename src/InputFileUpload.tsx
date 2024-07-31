@@ -158,10 +158,11 @@ export default function InputFileUpload({
 
         {file != null && (
           <FileUpload
+            duplicateRowsRemoved={labelData?.stats.duplicateRowsRemoved ?? null}
             fileName={file.name}
             fileSize={`${Math.round(file.size / 1000)}kb`}
             icon={<InsertDriveFileRoundedIcon />}
-            importRowsCount={labelData?.labels.length ?? null}
+            importRowsCount={labelData?.stats.rowsParsed ?? null}
             importType={labelData?._type ?? null}
             labelCount={labelCount}
             progress={uploadProgress}

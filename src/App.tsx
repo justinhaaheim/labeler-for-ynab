@@ -59,6 +59,7 @@ import {getIsDevMode} from './Flags';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import {
+  isSuspectedAlreadyLabeled,
   renderFinalizedMatches,
   renderStandardTransactionFromLabelElements,
 } from './LabelElements';
@@ -83,6 +84,7 @@ type LabelSyncFilterConfig = {
   omitAlreadyCategorized: boolean;
   omitNonemptyMemo: boolean;
   omitReconciled: boolean;
+  omitSuspectedAlreadyLabeled: boolean;
 };
 
 function App() {
@@ -179,6 +181,7 @@ function App() {
       omitAlreadyCategorized: false,
       omitNonemptyMemo: false,
       omitReconciled: true,
+      omitSuspectedAlreadyLabeled: false,
     });
 
   const [labelPrefixNotDeferred, setLabelPrefixNotDeferred] =
@@ -221,18 +224,28 @@ function App() {
         return false;
       }
 
+      if (
+        labelSyncFilterConfig.omitSuspectedAlreadyLabeled &&
+        isSuspectedAlreadyLabeled(t.memo ?? '')
+      ) {
+        return false;
+      }
+
       return true;
     });
 
-    return getMatchCandidatesForAllLabels(
+    const newMatchCandidates = getMatchCandidatesForAllLabels(
       labelsWithLabelElements,
       filteredTransactions,
     );
+    console.debug('newMatchCandidates:', newMatchCandidates);
+    return newMatchCandidates;
   }, [
     labelSyncFilterConfig.omitAlreadyApproved,
     labelSyncFilterConfig.omitAlreadyCategorized,
     labelSyncFilterConfig.omitNonemptyMemo,
     labelSyncFilterConfig.omitReconciled,
+    labelSyncFilterConfig.omitSuspectedAlreadyLabeled,
     labelsWithLabelElements,
     transactions,
   ]);
@@ -243,6 +256,7 @@ function App() {
     }
 
     const resolvedMatches = resolveBestMatchForLabels(matchCandidates);
+    console.debug('resolvedMatches:', resolvedMatches);
 
     const matchesWithWarnings: LabelTransactionMatchWithWarnings[] =
       resolvedMatches.map((match) => {
@@ -261,7 +275,7 @@ function App() {
       prefix: labelPrefix,
     });
 
-    console.debug('finalizedMatchesFiltered:', newFinalizedMatches);
+    console.debug('finalizedMatches:', newFinalizedMatches);
     return newFinalizedMatches;
   }, [matchCandidates, labelPrefix]);
 
@@ -646,13 +660,29 @@ function App() {
                           <ListItem>
                             <Checkbox
                               checked={labelSyncFilterConfig.omitNonemptyMemo}
-                              label="Transactions With Pre-existing Memos"
+                              label="Transactions With Non-empty Memo Fields"
                               onChange={(
                                 e: React.ChangeEvent<HTMLInputElement>,
                               ) =>
                                 setLabelSyncFilterConfig((prev) => ({
                                   ...prev,
                                   omitNonemptyMemo: e.target.checked,
+                                }))
+                              }
+                            />
+                          </ListItem>
+                          <ListItem>
+                            <Checkbox
+                              checked={
+                                labelSyncFilterConfig.omitSuspectedAlreadyLabeled
+                              }
+                              label="Transactions That Already Appear To Have A Label"
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                              ) =>
+                                setLabelSyncFilterConfig((prev) => ({
+                                  ...prev,
+                                  omitSuspectedAlreadyLabeled: e.target.checked,
                                 }))
                               }
                             />
