@@ -5,6 +5,11 @@ import {v4 as uuidv4} from 'uuid';
 import * as ynab from 'ynab';
 
 import {getAmazonOrderLabelElements} from './AmazonLinks';
+import {
+  areEqualWithPrecision,
+  HARDCODED_CURRENCY_DECIMAL_DIGITS,
+  parseLocaleNumber,
+} from './Currency';
 import {getDateString} from './DateUtils';
 import isNonNullable from './isNonNullable';
 import {ON_TRUNCATE_TYPES} from './LabelElements';
@@ -15,7 +20,6 @@ import {
   type StandardTransactionTypeWithLabelElements,
   type YnabCsvTransactionType,
 } from './LabelTypes';
-import parseLocaleNumber from './parseLocaleNumber';
 
 type DateCandidateWithPosition = {
   date: Date;
@@ -248,6 +252,7 @@ export function getLabelsFromAmazonOrders(
         (transaction) => transaction.amount != null && transaction.date != null,
       ) as TransactionDataNonNullable[];
 
+      // NOTE: This can lead to floating point numbers like 54.68000000000001, so it's imperative here that we handle that down below when we compare this to the parsed order total
       const transactionDataTotal = transactionData.reduce(
         (acc, curr) => acc + (curr.amount ?? 0),
         0,
@@ -280,10 +285,16 @@ export function getLabelsFromAmazonOrders(
         return orderLabel;
       }
 
-      if (transactionDataTotal !== parsedOrderTotal) {
-        console.debug(
+      if (
+        !areEqualWithPrecision(
+          transactionDataTotal,
+          parsedOrderTotal,
+          HARDCODED_CURRENCY_DECIMAL_DIGITS,
+        )
+      ) {
+        console.warn(
           '[getLabelsFromAmazonOrders] transaction data from order did not add up to order total. Bailing on using transaction data.',
-          {parsedOrderTotal, transactionData},
+          {parsedOrderTotal, transactionData, transactionDataTotal},
         );
         return orderLabel;
       }
