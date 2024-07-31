@@ -145,6 +145,7 @@ export default function FinalizedMatchesDataGrid({
   //   : [{amount: 0, date: '-', id: '-', memo: '-', payee: '-'}];
   const [rowIsWrapped, setRowIsWrapped] = useState<Record<string, boolean>>({});
 
+  // TODO: Keep track of the list of columns clicked in order so that we can sort by multiple columns in order
   const [sortByColumn, setSortByColumn] = useState<{
     ascending: boolean;
     columnID: ColumnID;
@@ -225,7 +226,7 @@ export default function FinalizedMatchesDataGrid({
         </thead>
 
         <tbody>
-          {data.map((finalizedMatch) => {
+          {data.map((finalizedMatch, _rowIndex) => {
             const rowID = finalizedMatch.label.id;
             const rowShouldWrap = rowIsWrapped[rowID] ?? false;
 
@@ -256,7 +257,7 @@ export default function FinalizedMatchesDataGrid({
                     [rowID]: !prev[rowID],
                   }));
                 }}>
-                {columns.map((col) => (
+                {columns.map((col, _colIndex) => (
                   <td
                     key={col.headerName}
                     style={{
@@ -265,6 +266,7 @@ export default function FinalizedMatchesDataGrid({
                         : ROW_NO_WRAP_STYLE),
                       ...(col.sx ?? {}),
                     }}>
+                    {/* {colIndex === 0 ? String(rowIndex + 1) + ' ' : null} */}
                     {col.getNode(finalizedMatch)}
                   </td>
                 ))}
