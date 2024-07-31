@@ -14,7 +14,7 @@ describe('resolveBestMatchForLabels', () => {
             category_name: 'Uncategorized',
             cleared: 'cleared',
             date: '2023-06-08',
-            dateDiff: 0,
+            // dateDiff: 0,
             deleted: false,
             id: 'c1',
             import_id: 'YNAB:-74970:2023-06-08:1',
@@ -32,7 +32,7 @@ describe('resolveBestMatchForLabels', () => {
             category_name: 'Uncategorized',
             cleared: 'cleared',
             date: '2023-06-09',
-            dateDiff: 86400000,
+            // dateDiff: 86400000,
             deleted: false,
             id: 'c2',
             import_id: 'YNAB:-74970:2023-06-09:1',
@@ -69,7 +69,7 @@ describe('resolveBestMatchForLabels', () => {
             category_name: 'Uncategorized',
             cleared: 'cleared',
             date: '2023-06-08',
-            dateDiff: 0,
+            // dateDiff: 0,
             deleted: false,
             id: 'c1',
             import_id: 'YNAB:-74970:2023-06-08:1',
@@ -87,7 +87,7 @@ describe('resolveBestMatchForLabels', () => {
             category_name: 'Uncategorized',
             cleared: 'cleared',
             date: '2023-06-09',
-            dateDiff: 86400000,
+            // dateDiff: 86400000,
             deleted: false,
             id: 'c2',
             import_id: 'YNAB:-74970:2023-06-09:1',
@@ -118,7 +118,7 @@ describe('resolveBestMatchForLabels', () => {
 
     const result = resolveBestMatchForLabels(matchCandidates);
 
-    console.log('result:', result);
+    // console.log('result:', result);
     expect(result[0]?.label.id).toContain('1_of_2');
     expect(result[0]?.transactionMatch?.date).toMatch('2023-06-08');
 

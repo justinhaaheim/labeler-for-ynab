@@ -81,7 +81,8 @@ export default function FileUpload({
         </Typography>
         <Typography fontStyle="italic" level="body-xs" sx={{mt: 1}}>
           Note: multiple labels are created when a row contains multiple
-          transactions. When a row is missing data a label is not created.
+          transactions and/or a refund amount. When a row is missing data a
+          label is not created.
         </Typography>
         <Box sx={{alignItems: 'center', display: 'flex', gap: 1}}>
           <LinearProgress
