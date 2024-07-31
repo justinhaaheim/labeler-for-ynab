@@ -50,9 +50,9 @@ export function removeDuplicateAmazonOrderRows(
 ): AmazonOrdersCsvImportType[] {
   const seenOrderIds = new Set<string>();
 
-  return rows.filter((row, i) => {
+  return rows.filter((row) => {
     if (seenOrderIds.has(row.order_id)) {
-      console.debug('Found duplicate order row:', {i, row});
+      // console.debug('Found duplicate order row:', {i, row});
       return false;
     }
     seenOrderIds.add(row.order_id);
