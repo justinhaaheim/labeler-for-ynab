@@ -151,6 +151,8 @@ function App() {
 
   const [isBudgetExportInProgress, setIsBudgetExportInProgress] =
     useState<boolean>(false);
+  const [isYNABSyncInProgress, setIsYNABSyncInProgress] =
+    useState<boolean>(false);
 
   const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
@@ -795,7 +797,8 @@ function App() {
                                 labelsWithLabelElements.length === 0 ||
                                 successfulMatchesCount === 0 ||
                                 selectedAccountID == null ||
-                                selectedBudgetID == null
+                                selectedBudgetID == null ||
+                                isYNABSyncInProgress
                               }
                               onClick={() => {
                                 if (ynabApi == null) {
@@ -817,7 +820,7 @@ function App() {
                                   );
                                   return;
                                 }
-
+                                setIsYNABSyncInProgress(true);
                                 syncLabelsToYnab({
                                   accountID: selectedAccountID,
                                   budgetID: selectedBudgetID,
@@ -829,15 +832,22 @@ function App() {
                                       ...prev,
                                       updateLogs,
                                     ]);
+                                    setIsYNABSyncInProgress(false);
                                   })
                                   .catch((error) => {
                                     console.error(
                                       '📡❌ Error syncing labels to YNAB.',
                                       error,
                                     );
+                                    setIsYNABSyncInProgress(false);
                                     getYNABErrorHandler(onAuthError)(error);
                                   });
                               }}
+                              startDecorator={
+                                isYNABSyncInProgress ? (
+                                  <CircularProgress variant="solid" />
+                                ) : null
+                              }
                               variant="solid">
                               Sync labels to YNAB
                             </Button>
