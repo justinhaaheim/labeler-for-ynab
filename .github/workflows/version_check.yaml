@@ -1,0 +1,29 @@
+name: Version Increment Check
+
+on:
+  pull_request:
+
+jobs:
+  check-signals:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Check that this PRs package version is greater than main branch
+        run: npm run check-branch-version-bump
