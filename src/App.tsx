@@ -20,6 +20,7 @@ import CardActions from '@mui/joy/CardActions';
 import CardContent from '@mui/joy/CardContent';
 import CardOverflow from '@mui/joy/CardOverflow';
 import Checkbox from '@mui/joy/Checkbox';
+import CircularProgress from '@mui/joy/CircularProgress';
 import Divider from '@mui/joy/Divider';
 import FormControl from '@mui/joy/FormControl';
 import FormLabel from '@mui/joy/FormLabel';
@@ -56,6 +57,7 @@ import {
 import {getDateTimeString, getTimePrettyString} from './DateUtils';
 import FinalizedMatchesDataGrid from './FinalizedMatchesDataGrid';
 import {getIsDevMode} from './Flags';
+import {getBooleanParamFlag} from './getParamFlag';
 import initiateUserJSONDownload from './initiateUserJSONDownlaod';
 import InputFileUpload from './InputFileUpload';
 import {
@@ -70,6 +72,7 @@ import {
 import {MAXIMUM_YNAB_MEMO_LENGTH, syncLabelsToYnab} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
+import {downloadAllBudgetData} from './YNABExport';
 import {
   budgetCompareFunctionForSort,
   clearTokenStorage,
@@ -89,6 +92,8 @@ type LabelSyncFilterConfig = {
 
 function App() {
   const {mode} = useColorScheme();
+
+  const enableBudgetExport = getBooleanParamFlag('enableExport', false);
 
   const [_ynabToken, setYnabToken] = useState<string | null>(null);
   const [ynabTokenExpirationTimestamp, setYnabTokenExpirationTimestamp] =
@@ -143,6 +148,9 @@ function App() {
       setYNABTokenUnavailable(true);
     }
   }
+
+  const [isBudgetExportInProgress, setIsBudgetExportInProgress] =
+    useState<boolean>(false);
 
   const [budgets, setBudgets] = useState<ynab.BudgetSummary[] | null>(null);
   const [selectedBudgetID, setSelectedBudgetID] = useState<string | null>(null);
@@ -367,6 +375,7 @@ function App() {
     const uri = `https://app.ynab.com/oauth/authorize?client_id=${
       config.clientId
     }&redirect_uri=${redirectUri.toString()}&response_type=token`;
+    // TODO: Use history api
     window.location.replace(uri);
     // fetch(uri, {method: 'GET', mode: 'no-cors'})
     //   .then((response) => {
@@ -518,6 +527,40 @@ function App() {
                           </Select>
                         </FormControl>
                       </Box>
+
+                      {enableBudgetExport &&
+                        ynabApi != null &&
+                        selectedBudgetID != null && (
+                          <Box>
+                            <Button
+                              disabled={
+                                ynabApi == null || selectedBudgetID == null
+                              }
+                              onClick={async () => {
+                                setIsBudgetExportInProgress(true);
+                                try {
+                                  await downloadAllBudgetData({
+                                    budgetID: selectedBudgetID,
+                                    ynabApi,
+                                  });
+                                } catch (error: unknown) {
+                                  console.error(
+                                    'Error downloading budget data',
+                                    error,
+                                  );
+                                }
+                                setIsBudgetExportInProgress(false);
+                              }}
+                              startDecorator={
+                                isBudgetExportInProgress ? (
+                                  <CircularProgress variant="solid" />
+                                ) : null
+                              }
+                              variant="solid">
+                              Download Full Budget Backup (json)
+                            </Button>
+                          </Box>
+                        )}
 
                       <Box sx={{minWidth: 240}}>
                         <FormControl
@@ -816,8 +859,6 @@ function App() {
                       </CardActions>
                     </CardOverflow>
                   </Card>
-
-                  <Box></Box>
 
                   <Box>
                     <Checkbox
