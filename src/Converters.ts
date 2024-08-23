@@ -41,14 +41,14 @@ type TransactionDataNonNullable = {
   date: Date;
 };
 
-export type AmazonOptionsConfig = {
+export type ConverterOptionsConfig = {
   includeLinks: boolean;
   linkType: 'markdown' | 'plain';
   shortenLinks: boolean;
 };
 
 type ConvertParsedLabelConfig = {
-  amazonConfig: AmazonOptionsConfig;
+  amazonConfig: ConverterOptionsConfig;
 };
 
 const AMAZON_PAYMENTS_STRING_DELIMITER = ':';
@@ -193,7 +193,7 @@ function getDataFromAmazonPaymentsString(
  */
 export function getLabelsFromAmazonOrders(
   orders: AmazonOrdersCsvImportType[],
-  config: AmazonOptionsConfig,
+  config: ConverterOptionsConfig,
 ): StandardTransactionTypeWithLabelElements[] {
   /**
    * NOTE: We may not need this order occurrence counting, as the data we're using from the amazon transaction

@@ -1,4 +1,4 @@
-import type {AmazonOptionsConfig} from './Converters';
+import type {ConverterOptionsConfig} from './Converters';
 import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {
@@ -166,7 +166,7 @@ function App() {
     ynab.TransactionDetail[] | null
   >(null);
 
-  const [amazonConfig, setAmazonConfig] = useState<AmazonOptionsConfig>({
+  const [amazonConfig, setAmazonConfig] = useState<ConverterOptionsConfig>({
     includeLinks: true,
     linkType: 'plain',
     shortenLinks: true,
@@ -639,7 +639,7 @@ function App() {
                                         setAmazonConfig((prev) => ({
                                           ...prev,
                                           linkType: event.target
-                                            .value as AmazonOptionsConfig['linkType'],
+                                            .value as ConverterOptionsConfig['linkType'],
                                         }));
                                       }}
                                       value={amazonConfig.linkType}>

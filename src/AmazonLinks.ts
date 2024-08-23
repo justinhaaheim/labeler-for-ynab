@@ -1,4 +1,4 @@
-import type {AmazonOptionsConfig} from './Converters';
+import type {ConverterOptionsConfig} from './Converters';
 
 import exhaustivenessCheck from './exhaustivenessCheck';
 import {type LabelElement, ON_TRUNCATE_TYPES} from './LabelElements';
@@ -49,7 +49,7 @@ export function shortenAmazonOrderURL(urlString: string): string {
 }
 
 type GetAmazonURLElementsProps = {
-  config: AmazonOptionsConfig;
+  config: ConverterOptionsConfig;
   items: string;
   url: string;
 };
