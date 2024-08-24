@@ -6,7 +6,7 @@ import {v4 as uuidv4} from 'uuid';
 
 import isNonNullable from './isNonNullable';
 
-export const MAXIMUM_YNAB_MEMO_LENGTH = 200;
+export const YNAB_MAX_MEMO_LENGTH = 200;
 
 export const UPDATE_TYPE_PRETTY_STRING = {
   sync: 'Sync',
@@ -57,6 +57,10 @@ type UndoConfig = {
   ynabAPI: API;
 };
 
+export function trimToYNABMaxMemoLength(memo: string): string {
+  return memo.slice(0, YNAB_MAX_MEMO_LENGTH);
+}
+
 export async function syncLabelsToYnab({
   accountID,
   budgetID,
@@ -76,7 +80,15 @@ export async function syncLabelsToYnab({
 
         const ynabTransactionToUpdate = match.transactionMatch;
 
-        const newMemo = match.newMemo;
+        // Let's truncate here just to be sure, even though we're already doing that elsewhere in the codebase
+        const newMemo = trimToYNABMaxMemoLength(match.newMemo);
+
+        if (newMemo !== match.newMemo) {
+          console.warn(
+            `[syncLabelsToYnab] match.newMemo was over YNAB's memo length limit and was truncated from ${match.newMemo.length} to ${newMemo.length}.`,
+            match,
+          );
+        }
 
         // console.debug({
         //   newMemo,

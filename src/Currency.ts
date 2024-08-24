@@ -60,3 +60,15 @@ export function areEqualWithPrecision(
 ): boolean {
   return n1.toFixed(digits) === n2.toFixed(digits);
 }
+
+export function convertUSDToMilliunits(amount: number): number {
+  const rawValue = amount * 1000;
+  const roundedValue = Math.round(rawValue);
+  if (rawValue !== roundedValue) {
+    console.warn(
+      '[convertUSDToMilliunits] converting to milliunits had extra digits of precision (likely floating point arithemtic error):',
+      {amount, rawValue, roundedValue},
+    );
+  }
+  return roundedValue;
+}

@@ -69,7 +69,7 @@ import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
-import {MAXIMUM_YNAB_MEMO_LENGTH, syncLabelsToYnab} from './Sync';
+import {syncLabelsToYnab, YNAB_MAX_MEMO_LENGTH} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
 import {downloadAllBudgetData} from './YNABExport';
@@ -1032,7 +1032,7 @@ function App() {
                             transactions={labelsWithLabelElements.map((l) =>
                               renderStandardTransactionFromLabelElements(
                                 l,
-                                MAXIMUM_YNAB_MEMO_LENGTH,
+                                YNAB_MAX_MEMO_LENGTH,
                               ),
                             )}
                           />

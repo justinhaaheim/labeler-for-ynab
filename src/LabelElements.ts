@@ -8,7 +8,7 @@ import type {
 } from './Matching';
 
 import repeatString from './repeatString';
-import {MAXIMUM_YNAB_MEMO_LENGTH} from './Sync';
+import {YNAB_MAX_MEMO_LENGTH} from './Sync';
 
 /**
  * TODO: Handle what happens if two spaces are next to each other after
@@ -300,7 +300,7 @@ export function renderFinalizedMatches({
 
     const transactionMemo = match.transactionMatch?.memo ?? '';
     const charsRemainingForLabel =
-      MAXIMUM_YNAB_MEMO_LENGTH - transactionMemo.length;
+      YNAB_MAX_MEMO_LENGTH - transactionMemo.length;
     const labelFullLength = renderLabelNoLimit(match.label.memo).length;
 
     if (
@@ -338,7 +338,7 @@ export function renderFinalizedMatches({
         ...match.label.memo,
       ],
       // TODO: Maybe take this in as a function arg rather than assuming 200 here
-      MAXIMUM_YNAB_MEMO_LENGTH,
+      YNAB_MAX_MEMO_LENGTH,
     );
     return {...match, newMemo, warnings: newWarnings};
   });

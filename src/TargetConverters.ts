@@ -1,9 +1,11 @@
 import type {ConverterOptionsConfig} from './Converters';
 import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
+import type {SaveSubTransaction} from 'ynab';
 
 import nullthrows from 'nullthrows';
 
-// import fileToProcess from '../tmp/2024-08-22__02-40-53__targetOrderData__2-of-2__invoiceAndOrderData.json';
+import fileToProcess from '../tmp/2024-08-23__22-26-20__targetOrderData__2-of-2__invoiceAndOrderData.json';
+import {convertUSDToMilliunits} from './Currency';
 import {getDateString, getPrettyDateTimeString} from './DateUtils';
 import isNonNullable from './isNonNullable';
 import {
@@ -11,10 +13,8 @@ import {
   ON_TRUNCATE_TYPES,
   renderLabel,
 } from './LabelElements';
-import {
-  type CombinedOutputData,
-  // CombinedOutputDataZod
-} from './TargetAPITypes';
+import {trimToYNABMaxMemoLength} from './Sync';
+import {type CombinedOutputData, CombinedOutputDataZod} from './TargetAPITypes';
 
 export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   /**
@@ -27,6 +27,8 @@ export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
    */
   cardType: string;
 };
+
+const SINGLE_SPACE = ' ';
 
 // TODO: Change this back to commas, and create a way to have the comma immediately follow the text before it, but leave a space afterwards
 const separatorLabelElement: LabelElement = {
@@ -93,26 +95,79 @@ export function getLabelsFromTargetOrderData(
                * We could build both, and let the user decide.
                */
 
+              const subTransactions: SaveSubTransaction[] =
+                invoiceDetail.lines.map((line) => {
+                  const newMemoNotTruncated =
+                    (line.quantity > 1 ? `${line.quantity}x ` : '') +
+                      line.item.description ?? '(no item description)';
+                  return {
+                    amount: convertUSDToMilliunits(line.effective_amount),
+                    memo: trimToYNABMaxMemoLength(newMemoNotTruncated),
+                    // payee_name: 'Target',
+                  };
+                });
+
+              const subTransactionsTotalMilliunits = subTransactions.reduce(
+                (acc, subT) => acc + subT.amount,
+                0,
+              );
+
+              const totalChargedToCardMilliunits =
+                convertUSDToMilliunits(totalChargedToCard);
+
+              const subTransactionDiscrepancyFromTotal =
+                totalChargedToCardMilliunits - subTransactionsTotalMilliunits;
+
+              if (subTransactionDiscrepancyFromTotal !== 0) {
+                console.log(
+                  `[getLabelsFromTargetOrderData] Discrepancy between total charged to card and sum of subtransactions for invoice ${invoiceDetail.id}.`,
+                  {
+                    discrepancy: subTransactionDiscrepancyFromTotal,
+                    invoiceDetail,
+                    subTransactions,
+                  },
+                );
+                subTransactions.push({
+                  amount: subTransactionDiscrepancyFromTotal,
+                  memo: '(adjustment: unknown discrepancy between item subtotals and total charged to card)',
+                });
+              }
+
+              const lineItemCount = invoiceDetail.lines.length;
+
+              if (lineItemCount === 0) {
+                console.warn(
+                  `[getLabelsFromTargetOrderData] Expected at least one line item per invoice, but found none for invoice ${invoiceDetail.id}.`,
+                  invoiceDetail,
+                );
+              }
+
+              // TODO: Add order/invoice URL to main description
+
+              const shouldTrimLineItemDescriptionWords = lineItemCount > 1;
+
               // Sort the items in descending order by their individual line total
               const linesSorted = invoiceDetail.lines.slice().sort((a, b) => {
                 return b.effective_amount - a.effective_amount;
               });
 
-              // TODO: Add order/invoice URL
-
               const memoLabel: LabelElement[] = linesSorted.flatMap(
                 (line, i) => {
-                  // Let's try just providing the first 4 words of the description
-                  const truncatedDescription =
-                    line.item.description?.split(' ').slice(0, 4).join(' ') ??
-                    '(no description)';
+                  const newDescription =
+                    (shouldTrimLineItemDescriptionWords
+                      ? line.item.description
+                          ?.split(SINGLE_SPACE)
+                          .slice(0, 4)
+                          .join(SINGLE_SPACE)
+                      : line.item.description) ?? '(no description)';
+
                   const itemLabelElement: LabelElement[] = [
                     {
                       flexShrink: 1,
                       onOverflow: ON_TRUNCATE_TYPES.truncate,
                       value:
                         (line.quantity > 1 ? `${line.quantity}x ` : '') +
-                          truncatedDescription ?? '(no description)',
+                          newDescription ?? '(no description)',
                     },
                   ];
                   if (i < linesSorted.length - 1) {
@@ -126,8 +181,18 @@ export function getLabelsFromTargetOrderData(
                 amount: totalChargedToCard,
                 date: getDateString(invoiceDetail.date),
                 id: invoiceDetail.id,
-                memo: memoLabel,
+                memo:
+                  memoLabel.length > 0
+                    ? memoLabel
+                    : [
+                        {
+                          flexShrink: 1,
+                          onOverflow: ON_TRUNCATE_TYPES.truncate,
+                          value: '(no line items)',
+                        },
+                      ],
                 payee: 'Target',
+                ...(lineItemCount > 1 ? {subTransactions} : {}),
                 // TODO: use tenant_key instead of hardcoding "Target"
                 // payee: invoiceAndOrderDataEntry.orderHistoryData.tenant_key,
               };
@@ -143,9 +208,9 @@ export function getLabelsFromTargetOrderData(
       new Date(data._createdTimestamp),
     )} | Transactions:`,
   );
-  console.table(
-    transactions.map((t) => ({...t, memo: renderLabel(t.memo, Infinity)})),
-  );
+  // console.table(
+  //   transactions.map((t) => ({...t, memo: renderLabel(t.memo, Infinity)})),
+  // );
 
   console.table(
     transactions.map((t) => ({...t, memo: renderLabel(t.memo, 200)})),
@@ -154,6 +219,17 @@ export function getLabelsFromTargetOrderData(
   return transactions;
 }
 
-// console.log('Getting ynab transactions from Target Order Data...');
-// getLabelsFromTargetOrderData(CombinedOutputDataZod.parse(fileToProcess));
-// console.log('✅ Getting transactions complete!');
+console.log('Getting ynab transactions from Target Order Data...');
+const labelOutput = getLabelsFromTargetOrderData(
+  CombinedOutputDataZod.parse(fileToProcess),
+  {
+    cardType: 'TARGETCREDIT',
+    includeLinks: false,
+    linkType: 'plain',
+    shortenLinks: false,
+  },
+);
+
+console.log('labelOutput:');
+console.log(JSON.stringify(labelOutput, null, 2));
+console.log('✅ Getting transactions complete!');
