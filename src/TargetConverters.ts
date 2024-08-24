@@ -32,7 +32,7 @@ const SINGLE_SPACE = ' ';
 
 // TODO: Change this back to commas, and create a way to have the comma immediately follow the text before it, but leave a space afterwards
 const separatorLabelElement: LabelElement = {
-  flexShrink: 0,
+  flexShrink: 1,
   onOverflow: ON_TRUNCATE_TYPES.omit,
   value: '|',
 };
@@ -55,6 +55,29 @@ export function getLabelsFromTargetOrderData(
             (
               invoiceDetail,
             ): StandardTransactionTypeWithLabelElements | null => {
+              let primaryCardPayment:
+                | (typeof invoiceDetail.payments)[number]
+                | null = null;
+              let otherPayments: typeof invoiceDetail.payments = [];
+
+              invoiceDetail.payments.forEach((p) => {
+                if (p.type === config.cardType) {
+                  if (primaryCardPayment == null) {
+                    primaryCardPayment = p;
+                  } else {
+                    console.warn(
+                      `[getLabelsFromTargetOrderData] Expected exactly 0 or 1 card payments per invoice, but found more than one. Using the first one found.`,
+                      {
+                        _orderNumber: invoiceAndOrderDataEntry._orderNumber,
+                        payments: invoiceDetail.payments,
+                      },
+                    );
+                  }
+                } else {
+                  otherPayments.push(p);
+                }
+              });
+
               const filteredPayments = invoiceDetail.payments.filter(
                 (p) => p.type === config.cardType,
               );
@@ -106,6 +129,23 @@ export function getLabelsFromTargetOrderData(
                     // payee_name: 'Target',
                   };
                 });
+
+              otherPayments.forEach((p) => {
+                if (p.total_charged === 0) {
+                  console.log(
+                    '[getLabelsFromTargetOrderData] Encountered a payment with amount of 0. Skipping...',
+                    {invoiceDetail, payment: p},
+                  );
+                  return;
+                }
+
+                subTransactions.push({
+                  amount: convertUSDToMilliunits(-1 * p.total_charged), // negate the amount since it's effectively a credit
+                  memo: trimToYNABMaxMemoLength(
+                    p.sub_type_value ?? '(unknown payment type)',
+                  ),
+                });
+              });
 
               const subTransactionsTotalMilliunits = subTransactions.reduce(
                 (acc, subT) => acc + subT.amount,
