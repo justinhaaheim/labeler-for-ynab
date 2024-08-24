@@ -4,7 +4,6 @@ import type {SaveSubTransaction} from 'ynab';
 
 import nullthrows from 'nullthrows';
 
-import fileToProcess from '../tmp/2024-08-23__22-26-20__targetOrderData__2-of-2__invoiceAndOrderData.json';
 import {convertUSDToMilliunits} from './Currency';
 import {getDateString, getPrettyDateTimeString} from './DateUtils';
 import isNonNullable from './isNonNullable';
@@ -14,7 +13,7 @@ import {
   renderLabel,
 } from './LabelElements';
 import {trimToYNABMaxMemoLength} from './Sync';
-import {type CombinedOutputData, CombinedOutputDataZod} from './TargetAPITypes';
+import {type CombinedOutputData} from './TargetAPITypes';
 
 export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   /**
@@ -258,18 +257,3 @@ export function getLabelsFromTargetOrderData(
 
   return transactions;
 }
-
-console.log('Getting ynab transactions from Target Order Data...');
-const labelOutput = getLabelsFromTargetOrderData(
-  CombinedOutputDataZod.parse(fileToProcess),
-  {
-    cardType: 'TARGETCREDIT',
-    includeLinks: false,
-    linkType: 'plain',
-    shortenLinks: false,
-  },
-);
-
-console.log('labelOutput:');
-console.log(JSON.stringify(labelOutput, null, 2));
-console.log('✅ Getting transactions complete!');
