@@ -21,6 +21,9 @@ export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
    * For the target card this is "TARGETCREDIT". Whether we use this or another field we need some
    * way to determine which payments entry is the credit/debit card (or cash??) that we want for importing to YNAB.
    * We may want to also rely on sub_type_value and/or display_card_number. Not sure how this will look for cash.
+   *
+   * We should just fetch all the payments used in the imported data and let the user choose which one they want to
+   * generate transactions for, surfacing the ones that seem most sensible (and/or the ones that are the most prevalent in the data).
    */
   cardType: string;
 };
