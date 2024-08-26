@@ -39,7 +39,9 @@ export type UpdateLogEntryV1 = {
 
   method: 'append-label' | 'remove-label';
   newMemo: string;
+  newSubtransactions?: SaveTransactionWithIdOrImportId['subtransactions'];
   previousMemo: string | undefined;
+  previousSubtransactions?: SaveTransactionWithIdOrImportId['subtransactions'];
   updateSucceeded: boolean;
 };
 
@@ -100,13 +102,17 @@ export async function syncLabelsToYnab({
           label: match.label.memo,
           method: 'append-label',
           newMemo: newMemo,
+
+          newSubtransactions: match.label.subTransactions,
           // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
           previousMemo: ynabTransactionToUpdate.memo,
+          previousSubtransactions: ynabTransactionToUpdate.subtransactions,
         });
 
         return {
           id: ynabTransactionToUpdate.id,
           memo: newMemo,
+          subtransactions: match.label.subTransactions,
         };
       })
       .filter(isNonNullable);
@@ -162,7 +168,9 @@ export async function undoSyncLabelsToYnab({
         label: log.label,
         method: 'remove-label',
         newMemo: log.previousMemo ?? '',
+        newSubtransactions: log.previousSubtransactions,
         previousMemo: log.newMemo,
+        previousSubtransactions: log.newSubtransactions,
       });
 
       return {
@@ -173,6 +181,7 @@ export async function undoSyncLabelsToYnab({
          * not (ie the user manually edited the memo in the meantime)
          */
         memo: log.previousMemo,
+        subtransactions: log.previousSubtransactions,
       };
     });
 
