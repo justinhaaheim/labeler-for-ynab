@@ -173,6 +173,8 @@ export async function undoSyncLabelsToYnab({
         previousSubtransactions: log.newSubtransactions,
       });
 
+      // TODO: See if there's a way to delete subtransactions if they weren't previously there.
+
       return {
         id: log.id,
         /**

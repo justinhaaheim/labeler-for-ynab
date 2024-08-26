@@ -121,7 +121,7 @@ export function getLabelsFromTargetOrderData(
                 invoiceDetail.lines.map((line) => {
                   const newMemoNotTruncated =
                     (line.quantity > 1 ? `${line.quantity}x ` : '') +
-                      line.item.description ?? '(no item description)';
+                    (line.item.description ?? '(no item description)');
                   return {
                     // Flip the sign since we're now considering this a debit on a bank account
                     amount: -1 * convertUSDToMilliunits(line.effective_amount),
