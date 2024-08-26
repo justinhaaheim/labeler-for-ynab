@@ -11,6 +11,7 @@ import {
   parseLocaleNumber,
 } from './Currency';
 import {getDateString} from './DateUtils';
+import exhaustivenessCheck from './exhaustivenessCheck';
 import isNonNullable from './isNonNullable';
 import {ON_TRUNCATE_TYPES} from './LabelElements';
 import {type ParsedLabelsTyped} from './LabelParser';
@@ -20,6 +21,7 @@ import {
   type StandardTransactionTypeWithLabelElements,
   type YnabCsvTransactionType,
 } from './LabelTypes';
+import {getLabelsFromTargetOrderData} from './TargetConverters';
 
 type DateCandidateWithPosition = {
   date: Date;
@@ -50,6 +52,9 @@ export type ConverterOptionsConfig = {
 type ConvertParsedLabelConfig = {
   amazonConfig: ConverterOptionsConfig;
 };
+
+// TODO: Don't hardcode this
+const TARGET_PAYMENT_DEFAULT_NAME = 'TARGETCREDIT';
 
 const AMAZON_PAYMENTS_STRING_DELIMITER = ':';
 const AMAZON_PAYMENTS_TRANSACTION_DELIMITER = ';';
@@ -390,6 +395,17 @@ export function convertParsedLabelsToStandardTransaction(
     }
     case 'ynab': {
       return convertYnabCsvToStandardTransaction(parsedLabels.labels);
+    }
+    case 'target': {
+      return getLabelsFromTargetOrderData(parsedLabels.labels, {
+        cardType: TARGET_PAYMENT_DEFAULT_NAME,
+        includeLinks: false,
+        linkType: 'plain',
+        shortenLinks: false,
+      });
+    }
+    default: {
+      exhaustivenessCheck(parsedLabels);
     }
   }
 }

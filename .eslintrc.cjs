@@ -126,6 +126,8 @@ module.exports = {
 
     'no-var': ERROR,
 
+    'no-warning-comments': [ERROR, {location: 'anywhere', terms: ['nocommit']}],
+
     quotes: [ERROR, 'single', {allowTemplateLiterals: true, avoidEscape: true}],
 
     'react-hooks/exhaustive-deps': ERROR,

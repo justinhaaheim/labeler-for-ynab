@@ -18,7 +18,7 @@ import _ from 'lodash';
 import {useEffect, useMemo, useState} from 'react';
 
 import FileUpload from './FileUpload';
-import {getParsedLabelsFromCsv} from './LabelParser';
+import {getParsedLabelsFromFile} from './LabelParser';
 
 const LABEL_PREFIX_CHANGE_DEBOUNCE_WAIT_MS = 500;
 
@@ -73,7 +73,7 @@ export default function InputFileUpload({
       <Box sx={{mb: 1}}>
         <Typography level="title-md">Step 3: Upload Labels</Typography>
         <Typography level="body-sm">
-          Upload a .csv file containing the labels to apply to your YNAB
+          Upload a .csv/.json file containing the labels to apply to your YNAB
           transactions.
         </Typography>
       </Box>
@@ -107,9 +107,9 @@ export default function InputFileUpload({
           sx={{width: 'fit-content'}}
           tabIndex={-1}
           variant="outlined">
-          Upload csv file
+          Upload csv/json file
           <VisuallyHiddenInput
-            accept=".csv"
+            accept=".csv,application/json"
             onChange={(e) => {
               console.log('File uploaded', e);
               console.log(e.target.files?.[0]);
@@ -139,7 +139,7 @@ export default function InputFileUpload({
                     );
                   }
 
-                  const newParsedLabels = getParsedLabelsFromCsv(fileText);
+                  const newParsedLabels = getParsedLabelsFromFile(fileText);
                   setLabelData(newParsedLabels);
                   onNewLabelData(newParsedLabels);
                   setUploadProgress(100);
