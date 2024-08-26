@@ -98,9 +98,9 @@ export function getLabelsFromTargetOrderData(
                 return null;
               }
 
-              const totalChargedToCard = nullthrows(
-                filteredPayments[0]?.total_charged,
-              );
+              // Flip the sign since we're now considering this a debit on a bank account
+              const totalChargedToCard =
+                -1 * nullthrows(filteredPayments[0]?.total_charged);
 
               /**
                * TODO: Grab any other non-credit card payments and add them to the subtransactions, as they are a necessary
@@ -123,7 +123,8 @@ export function getLabelsFromTargetOrderData(
                     (line.quantity > 1 ? `${line.quantity}x ` : '') +
                       line.item.description ?? '(no item description)';
                   return {
-                    amount: convertUSDToMilliunits(line.effective_amount),
+                    // Flip the sign since we're now considering this a debit on a bank account
+                    amount: -1 * convertUSDToMilliunits(line.effective_amount),
                     memo: trimToYNABMaxMemoLength(newMemoNotTruncated),
                     // payee_name: 'Target',
                   };
@@ -139,7 +140,7 @@ export function getLabelsFromTargetOrderData(
                 }
 
                 subTransactions.push({
-                  amount: convertUSDToMilliunits(-1 * p.total_charged), // negate the amount since it's effectively a credit
+                  amount: convertUSDToMilliunits(p.total_charged), // This should be a positive value since it's treated as a credit
                   memo: trimToYNABMaxMemoLength(
                     p.sub_type_value ?? '(unknown payment type)',
                   ),
