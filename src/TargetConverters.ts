@@ -207,7 +207,7 @@ export function getLabelsFromTargetOrderData(
                       onOverflow: ON_TRUNCATE_TYPES.truncate,
                       value:
                         (line.quantity > 1 ? `${line.quantity}x ` : '') +
-                          newDescription ?? '(no description)',
+                        (newDescription ?? '(no description)'),
                     },
                   ];
                   if (i < linesSorted.length - 1) {
