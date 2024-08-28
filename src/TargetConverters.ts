@@ -3,6 +3,7 @@ import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {SaveSubTransaction} from 'ynab';
 
 import nullthrows from 'nullthrows';
+import {titleCase} from 'title-case';
 
 import {convertUSDToMilliunits} from './Currency';
 import {getDateString, getPrettyDateTimeString} from './DateUtils';
@@ -29,6 +30,8 @@ export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
 
 const SINGLE_SPACE = ' ';
 
+const DEFAULT_PRODUCT_CATEGORY = 'Unknown Category';
+
 // TODO: Change this back to commas, and create a way to have the comma immediately follow the text before it, but leave a space afterwards
 const separatorLabelElement: LabelElement = {
   flexShrink: 1,
@@ -49,6 +52,23 @@ export function getLabelsFromTargetOrderData(
   const transactions: StandardTransactionTypeWithLabelElements[] =
     data.invoiceAndOrderData.flatMap(
       (invoiceAndOrderDataEntry, _invoiceAndOrderDataIndex) => {
+        const productCategoryMap: Record<string, string> =
+          invoiceAndOrderDataEntry.orderAggregationsData?.[
+            'order_lines'
+          ].reduce<Record<string, string>>((acc, currentValue) => {
+            const productTypeName =
+              currentValue.item.product_classification.product_type_name;
+            const cat =
+              productTypeName != null
+                ? titleCase(productTypeName.toLowerCase())
+                : DEFAULT_PRODUCT_CATEGORY;
+            console.log(
+              `Product type name: ${productTypeName} | Category: ${cat}`,
+            );
+            acc[currentValue.item.tcin] = cat;
+            return acc;
+          }, {}) ?? {};
+
         const transactionsFromInvoiceData =
           invoiceAndOrderDataEntry.invoicesData.map(
             (
@@ -122,10 +142,16 @@ export function getLabelsFromTargetOrderData(
                   const newMemoNotTruncated =
                     (line.quantity > 1 ? `${line.quantity}x ` : '') +
                     (line.item.description ?? '(no item description)');
+
+                  const productCategory =
+                    productCategoryMap[line.item.tcin] ??
+                    DEFAULT_PRODUCT_CATEGORY;
                   return {
                     // Flip the sign since we're now considering this a debit on a bank account
                     amount: -1 * convertUSDToMilliunits(line.effective_amount),
-                    memo: trimToYNABMaxMemoLength(newMemoNotTruncated),
+                    memo: trimToYNABMaxMemoLength(
+                      `[${productCategory}] ${newMemoNotTruncated}`,
+                    ),
                     // payee_name: 'Target',
                   };
                 });

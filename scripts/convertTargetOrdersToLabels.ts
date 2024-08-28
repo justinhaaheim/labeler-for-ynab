@@ -1,6 +1,6 @@
+import fileToProcess from '../sample_data.local/2024-08-27__02-29-02__targetOrderData__2-of-2__invoiceAndOrderData__40-orders__includesAggregationsData.json';
 import {CombinedOutputDataZod} from '../src/TargetAPITypes';
 import {getLabelsFromTargetOrderData} from '../src/TargetConverters';
-import fileToProcess from '../tmp/2024-08-23__22-26-20__targetOrderData__2-of-2__invoiceAndOrderData.json';
 
 console.log('Getting ynab transactions from Target Order Data...');
 const labelOutput = getLabelsFromTargetOrderData(
