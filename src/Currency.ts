@@ -72,3 +72,10 @@ export function convertUSDToMilliunits(amount: number): number {
   }
   return roundedValue;
 }
+
+export function hasUnexpectedDigitsOfPrecision(
+  n: number,
+  digits: number,
+): boolean {
+  return n.toFixed(digits) !== n.toString();
+}
