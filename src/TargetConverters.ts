@@ -63,6 +63,7 @@ const separatorLabelElement: LabelElement = {
   value: '|',
 };
 
+// TODO: Add option to include dollar amount for each item, and then use this to create a memo when we optionally group subtransactions by category
 function getCombinedDescriptionForInvoiceLineItems({
   items,
   lineItemDescriptionMaxWordCount,
