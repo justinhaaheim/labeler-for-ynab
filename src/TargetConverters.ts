@@ -4,13 +4,15 @@ import type {
   CombinedOutputData,
   InvoiceDetail,
   PaymentDetail,
+  TargetAPIOrderAggregationsData,
 } from './TargetAPITypes';
 
 import {titleCase} from 'title-case';
-import {type SaveSubTransaction, utils} from 'ynab';
+import {type SaveSubTransaction, utils as ynabUtils} from 'ynab';
 
 import {
   convertUSDToMilliunits,
+  HARDCODED_CURRENCY_DECIMAL_DIGITS,
   hasUnexpectedDigitsOfPrecision,
 } from './Currency';
 import {getDateString, getPrettyDateTimeString} from './DateUtils';
@@ -20,7 +22,7 @@ import {
   ON_TRUNCATE_TYPES,
   renderLabel,
 } from './LabelElements';
-import {trimToYNABMaxMemoLength} from './Sync';
+import {trimToYNABMaxMemoLength, YNAB_MAX_MEMO_LENGTH} from './Sync';
 
 export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   /**
@@ -33,9 +35,17 @@ export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
  seem most sensible (and/or the ones that are the most prevalent in the data).
    */
   cardType: string;
+
+  groupByProductCategory: boolean;
+
+  // includeCostInMemoString: boolean;
 };
 
 export type ProductCategoryMap = {[tcin: string]: string};
+
+const PRODUCT_CATEGORY_MAP_HARDCODED_ITEMS: ProductCategoryMap = {
+  '47750281': 'Bag Fee',
+};
 
 type InvoiceLineItemData = {
   amount: number;
@@ -43,7 +53,7 @@ type InvoiceLineItemData = {
   description: string | null;
   quantity: number;
   tcin: string | null;
-  type: 'adjustment' | 'lineItem' | 'payment';
+  type: 'adjustment' | 'groupedLineItems' | 'lineItem' | 'payment';
 };
 
 type SaveSubTransactionWithTargetLineData = SaveSubTransaction & {
@@ -57,11 +67,34 @@ const DEFAULT_PRODUCT_CATEGORY = 'Unknown Category';
 const LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT = 4;
 
 // TODO: Change this back to commas, and create a way to have the comma immediately follow the text before it, but leave a space afterwards
+// OR... just create a single label element for the whole comma separated string, since that should have the same effect in the current system.
 const separatorLabelElement: LabelElement = {
   flexShrink: 1,
   onOverflow: ON_TRUNCATE_TYPES.omit,
   value: '|',
 };
+
+function createProductCategoryMap(
+  orderAggregationsData: TargetAPIOrderAggregationsData,
+): ProductCategoryMap {
+  const map =
+    orderAggregationsData?.['order_lines'].reduce<Record<string, string>>(
+      (acc, currentValue) => {
+        const productTypeName =
+          currentValue.item.product_classification.product_type_name;
+        const cat =
+          productTypeName != null
+            ? titleCase(productTypeName.toLowerCase())
+            : DEFAULT_PRODUCT_CATEGORY;
+        console.log(`Product type name: ${productTypeName} | Category: ${cat}`);
+        acc[currentValue.item.tcin] = cat;
+        return acc;
+      },
+      {},
+    ) ?? {};
+
+  return {...PRODUCT_CATEGORY_MAP_HARDCODED_ITEMS, ...map};
+}
 
 // TODO: Add option to include dollar amount for each item, and then use this to create a memo when we optionally group subtransactions by category
 function getCombinedDescriptionForInvoiceLineItems({
@@ -71,7 +104,7 @@ function getCombinedDescriptionForInvoiceLineItems({
   items: InvoiceLineItemData[];
   lineItemDescriptionMaxWordCount: number | null;
 }) {
-  const itemsSorted = items.slice().sort((a, b) => b.amount - a.amount);
+  const itemsSorted = items.slice().sort((a, b) => a.amount - b.amount);
 
   const combinedDescription: LabelElement[] = itemsSorted.flatMap((item, i) => {
     const newDescription =
@@ -159,12 +192,81 @@ function getCardPaymentBreakdown({
   };
 }
 
+function groupSubtransactionsByCategory({
+  subtransactions,
+}: {
+  subtransactions: SaveSubTransactionWithTargetLineData[];
+}): SaveSubTransactionWithTargetLineData[] {
+  const categoryBuckets = subtransactions.reduce<
+    Record<string, SaveSubTransactionWithTargetLineData[]>
+  >((acc, currentValue) => {
+    const category =
+      currentValue._invoiceLineItemData.category ?? DEFAULT_PRODUCT_CATEGORY;
+    if (acc[category] == null) {
+      acc[category] = [];
+    }
+    acc[category]?.push(currentValue);
+
+    return acc;
+  }, {});
+
+  const groupedSubtransactions: SaveSubTransactionWithTargetLineData[] =
+    Object.entries(categoryBuckets).map(
+      ([category, subtransactionsInCategory]) => {
+        const categoryTotalMillis = subtransactionsInCategory.reduce(
+          (acc, st) => acc + st.amount,
+          0,
+        );
+
+        const categoryLabelElement: LabelElement = {
+          flexShrink: 1,
+          onOverflow: 'truncate',
+          value: `[${category}]`,
+        };
+
+        const combinedDescriptionLabelElements =
+          getCombinedDescriptionForInvoiceLineItems({
+            items: subtransactionsInCategory.map(
+              (st) => st._invoiceLineItemData,
+            ),
+            lineItemDescriptionMaxWordCount:
+              LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT,
+          });
+
+        const memo = renderLabel(
+          [categoryLabelElement].concat(combinedDescriptionLabelElements),
+          YNAB_MAX_MEMO_LENGTH,
+        );
+
+        return {
+          _invoiceLineItemData: {
+            amount: ynabUtils.convertMilliUnitsToCurrencyAmount(
+              categoryTotalMillis,
+              HARDCODED_CURRENCY_DECIMAL_DIGITS,
+            ),
+            category: category,
+            description: memo,
+            quantity: 1,
+            tcin: null,
+            type: 'groupedLineItems' as const,
+          },
+          amount: categoryTotalMillis,
+          memo: memo,
+        };
+      },
+    );
+
+  return groupedSubtransactions;
+}
+
 function getSubtransactionsFromInvoiceDetail({
   invoiceDetail,
   productCategoryMap,
   otherPayments,
   totalChargedToCard,
+  groupByProductCategory,
 }: {
+  groupByProductCategory: boolean;
   invoiceDetail: InvoiceDetail;
   otherPayments: PaymentDetail[];
   productCategoryMap: ProductCategoryMap;
@@ -185,7 +287,7 @@ function getSubtransactionsFromInvoiceDetail({
    * We could build both, and let the user decide.
    */
 
-  const subTransactions: SaveSubTransactionWithTargetLineData[] =
+  const subTransactionsUngrouped: SaveSubTransactionWithTargetLineData[] =
     invoiceDetail.lines.map((line) => {
       const newMemoNotTruncated =
         (line.quantity > 1 ? `${line.quantity}x ` : '') +
@@ -210,6 +312,12 @@ function getSubtransactionsFromInvoiceDetail({
         // payee_name: 'Target',
       };
     });
+
+  const subTransactions = groupByProductCategory
+    ? groupSubtransactionsByCategory({
+        subtransactions: subTransactionsUngrouped,
+      })
+    : subTransactionsUngrouped;
 
   otherPayments.forEach((p) => {
     if (p.total_charged === 0) {
@@ -280,7 +388,7 @@ function getSubtransactionsFromInvoiceDetail({
 
     subTransactions.push({
       _invoiceLineItemData: {
-        amount: utils.convertMilliUnitsToCurrencyAmount(
+        amount: ynabUtils.convertMilliUnitsToCurrencyAmount(
           subTransactionDiscrepancyFromTotal,
         ),
         category: null,
@@ -310,22 +418,9 @@ export function getLabelsFromTargetOrderData(
   const transactions: StandardTransactionTypeWithLabelElements[] =
     data.invoiceAndOrderData.flatMap(
       (invoiceAndOrderDataEntry, _invoiceAndOrderDataIndex) => {
-        const productCategoryMap: ProductCategoryMap =
-          invoiceAndOrderDataEntry.orderAggregationsData?.[
-            'order_lines'
-          ].reduce<Record<string, string>>((acc, currentValue) => {
-            const productTypeName =
-              currentValue.item.product_classification.product_type_name;
-            const cat =
-              productTypeName != null
-                ? titleCase(productTypeName.toLowerCase())
-                : DEFAULT_PRODUCT_CATEGORY;
-            console.log(
-              `Product type name: ${productTypeName} | Category: ${cat}`,
-            );
-            acc[currentValue.item.tcin] = cat;
-            return acc;
-          }, {}) ?? {};
+        const productCategoryMap = createProductCategoryMap(
+          invoiceAndOrderDataEntry.orderAggregationsData,
+        );
 
         const transactionsFromInvoiceData =
           invoiceAndOrderDataEntry.invoicesData.map(
@@ -347,6 +442,7 @@ export function getLabelsFromTargetOrderData(
               }
 
               const subTransactions = getSubtransactionsFromInvoiceDetail({
+                groupByProductCategory: config.groupByProductCategory,
                 invoiceDetail,
                 otherPayments,
                 productCategoryMap,
@@ -355,14 +451,17 @@ export function getLabelsFromTargetOrderData(
 
               const subTransactionsNonNullable = subTransactions ?? [];
 
+              const maxWordCount = config.groupByProductCategory
+                ? null
+                : subTransactionsNonNullable.length > 1
+                ? LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT
+                : null;
+
               const memoLabel = getCombinedDescriptionForInvoiceLineItems({
                 items: subTransactionsNonNullable.map(
                   (st) => st._invoiceLineItemData,
                 ),
-                lineItemDescriptionMaxWordCount:
-                  subTransactionsNonNullable.length > 1
-                    ? LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT
-                    : null,
+                lineItemDescriptionMaxWordCount: maxWordCount,
               });
 
               const subTransactionsStripped =

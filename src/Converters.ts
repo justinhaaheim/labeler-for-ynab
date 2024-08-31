@@ -399,6 +399,7 @@ export function convertParsedLabelsToStandardTransaction(
     case 'target': {
       return getLabelsFromTargetOrderData(parsedLabels.labels, {
         cardType: TARGET_PAYMENT_DEFAULT_NAME,
+        groupByProductCategory: true,
         includeLinks: false,
         linkType: 'plain',
         shortenLinks: false,

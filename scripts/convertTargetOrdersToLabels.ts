@@ -7,6 +7,7 @@ const labelOutput = getLabelsFromTargetOrderData(
   CombinedOutputDataZod.parse(fileToProcess),
   {
     cardType: 'TARGETCREDIT',
+    groupByProductCategory: true,
     includeLinks: false,
     linkType: 'plain',
     shortenLinks: false,
