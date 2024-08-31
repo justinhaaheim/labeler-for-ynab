@@ -313,11 +313,16 @@ function getSubtransactionsFromInvoiceDetail({
       };
     });
 
-  const subTransactions = groupByProductCategory
+  const subTransactionsUnsorted = groupByProductCategory
     ? groupSubtransactionsByCategory({
         subtransactions: subTransactionsUngrouped,
       })
     : subTransactionsUngrouped;
+
+  // Sort the most expensive items (aka lowest, since outflows are negative)
+  const subTransactions = subTransactionsUnsorted
+    .slice()
+    .sort((a, b) => a.amount - b.amount);
 
   otherPayments.forEach((p) => {
     if (p.total_charged === 0) {
