@@ -9,6 +9,7 @@ const labelOutput = getLabelsFromTargetOrderData(
     cardType: 'TARGETCREDIT',
     groupByProductCategory: true,
     includeLinks: false,
+    includePricesForGroupedItemsInMemo: true,
     linkType: 'plain',
     shortenLinks: false,
   },

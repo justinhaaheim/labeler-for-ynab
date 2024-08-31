@@ -401,6 +401,7 @@ export function convertParsedLabelsToStandardTransaction(
         cardType: TARGET_PAYMENT_DEFAULT_NAME,
         groupByProductCategory: true,
         includeLinks: false,
+        includePricesForGroupedItemsInMemo: true,
         linkType: 'plain',
         shortenLinks: false,
       });

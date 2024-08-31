@@ -6,7 +6,7 @@ import Stack from '@mui/joy/Stack';
 import Table from '@mui/joy/Table';
 import {useState} from 'react';
 
-import getFormattedAmount from './getFormattedAmount';
+import {getFormattedAmount} from './Currency';
 
 type Props = {
   // label: string;

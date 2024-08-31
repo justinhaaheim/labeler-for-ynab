@@ -6,7 +6,7 @@ import ListItem from '@mui/joy/ListItem';
 import ListItemContent from '@mui/joy/ListItemContent';
 import React from 'react';
 
-import getFormattedAmount from './getFormattedAmount';
+import {getFormattedAmount} from './Currency';
 import {renderLabel} from './LabelElements';
 
 type Props = {

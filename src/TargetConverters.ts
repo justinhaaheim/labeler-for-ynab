@@ -12,6 +12,7 @@ import {type SaveSubTransaction, utils as ynabUtils} from 'ynab';
 
 import {
   convertUSDToMilliunits,
+  getFormattedAmount,
   HARDCODED_CURRENCY_DECIMAL_DIGITS,
   hasUnexpectedDigitsOfPrecision,
 } from './Currency';
@@ -38,7 +39,7 @@ export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
 
   groupByProductCategory: boolean;
 
-  // includeCostInMemoString: boolean;
+  includePricesForGroupedItemsInMemo: boolean;
 };
 
 export type ProductCategoryMap = {[tcin: string]: string};
@@ -100,11 +101,17 @@ function createProductCategoryMap(
 function getCombinedDescriptionForInvoiceLineItems({
   items,
   lineItemDescriptionMaxWordCount,
+  isRefund,
+  includePricesForGroupedItemsInMemo,
 }: {
+  includePricesForGroupedItemsInMemo: boolean;
+  isRefund: boolean;
   items: InvoiceLineItemData[];
   lineItemDescriptionMaxWordCount: number | null;
 }) {
-  const itemsSorted = items.slice().sort((a, b) => a.amount - b.amount);
+  const itemsSorted = items
+    .slice()
+    .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
 
   const combinedDescription: LabelElement[] = itemsSorted.flatMap((item, i) => {
     const newDescription =
@@ -116,6 +123,14 @@ function getCombinedDescriptionForInvoiceLineItems({
         : item.description) ?? NO_DESCRIPTION_TEXT;
 
     const itemLabelElement: LabelElement[] = [
+      includePricesForGroupedItemsInMemo && itemsSorted.length > 1
+        ? {
+            flexShrink: 1,
+            onOverflow: ON_TRUNCATE_TYPES.omit,
+            // Use the absolute value, since distinguishing between positive/negative probably isn't needed in the memo string
+            value: getFormattedAmount(Math.abs(item.amount)),
+          }
+        : null,
       {
         flexShrink: 1,
         onOverflow: ON_TRUNCATE_TYPES.truncate,
@@ -123,7 +138,7 @@ function getCombinedDescriptionForInvoiceLineItems({
           (item.quantity > 1 ? `${item.quantity}x ` : '') +
           (newDescription ?? NO_DESCRIPTION_TEXT),
       },
-    ];
+    ].filter(isNonNullable);
 
     if (i < itemsSorted.length - 1) {
       return itemLabelElement.concat([separatorLabelElement]);
@@ -193,8 +208,12 @@ function getCardPaymentBreakdown({
 }
 
 function groupSubtransactionsByCategory({
+  config,
   subtransactions,
+  isRefund,
 }: {
+  config: TargetConverterOptionsConfig;
+  isRefund: boolean;
   subtransactions: SaveSubTransactionWithTargetLineData[];
 }): SaveSubTransactionWithTargetLineData[] {
   const categoryBuckets = subtransactions.reduce<
@@ -226,6 +245,9 @@ function groupSubtransactionsByCategory({
 
         const combinedDescriptionLabelElements =
           getCombinedDescriptionForInvoiceLineItems({
+            includePricesForGroupedItemsInMemo:
+              config.includePricesForGroupedItemsInMemo,
+            isRefund,
             items: subtransactionsInCategory.map(
               (st) => st._invoiceLineItemData,
             ),
@@ -264,14 +286,18 @@ function getSubtransactionsFromInvoiceDetail({
   productCategoryMap,
   otherPayments,
   totalChargedToCard,
-  groupByProductCategory,
+  config,
+  isRefund,
 }: {
-  groupByProductCategory: boolean;
+  config: TargetConverterOptionsConfig;
   invoiceDetail: InvoiceDetail;
+  isRefund: boolean;
   otherPayments: PaymentDetail[];
   productCategoryMap: ProductCategoryMap;
   totalChargedToCard: number;
 }): SaveSubTransactionWithTargetLineData[] | null {
+  const {groupByProductCategory} = config;
+
   /**
    * TODO: Grab any other non-credit card payments and add them to the subtransactions, as they are a necessary
    * part of understanding how an invoice adds up to the total charged to the card. The invoice might have a
@@ -315,6 +341,8 @@ function getSubtransactionsFromInvoiceDetail({
 
   const subTransactionsUnsorted = groupByProductCategory
     ? groupSubtransactionsByCategory({
+        config,
+        isRefund,
         subtransactions: subTransactionsUngrouped,
       })
     : subTransactionsUngrouped;
@@ -322,7 +350,7 @@ function getSubtransactionsFromInvoiceDetail({
   // Sort the most expensive items (aka lowest, since outflows are negative)
   const subTransactions = subTransactionsUnsorted
     .slice()
-    .sort((a, b) => a.amount - b.amount);
+    .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
 
   otherPayments.forEach((p) => {
     if (p.total_charged === 0) {
@@ -446,9 +474,12 @@ export function getLabelsFromTargetOrderData(
                 return null;
               }
 
+              const isRefund = totalChargedToCard > 0;
+
               const subTransactions = getSubtransactionsFromInvoiceDetail({
-                groupByProductCategory: config.groupByProductCategory,
+                config,
                 invoiceDetail,
+                isRefund,
                 otherPayments,
                 productCategoryMap,
                 totalChargedToCard,
@@ -463,6 +494,9 @@ export function getLabelsFromTargetOrderData(
                 : null;
 
               const memoLabel = getCombinedDescriptionForInvoiceLineItems({
+                // We don't want to include prices in the main transaction memo since they'll be visible in the subtransactions/subtransaction memos
+                includePricesForGroupedItemsInMemo: false,
+                isRefund,
                 items: subTransactionsNonNullable.map(
                   (st) => st._invoiceLineItemData,
                 ),
