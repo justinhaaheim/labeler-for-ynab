@@ -69,6 +69,7 @@ import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
+import NewTransactionDataGrid from './NewTransactionDataGrid';
 import {syncLabelsToYnab, YNAB_MAX_MEMO_LENGTH} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
@@ -1027,7 +1028,7 @@ function App() {
                         } labels loaded`}</Typography>
 
                         {labelsWithLabelElements != null && (
-                          <TransactionDataGrid
+                          <NewTransactionDataGrid
                             size="sm"
                             transactions={labelsWithLabelElements.map((l) =>
                               renderStandardTransactionFromLabelElements(
