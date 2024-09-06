@@ -11,6 +11,7 @@ import {titleCase} from 'title-case';
 import {type SaveSubTransaction, utils as ynabUtils} from 'ynab';
 
 import {
+  areEqualWithPrecision,
   convertUSDToMilliunits,
   getFormattedAmount,
   HARDCODED_CURRENCY_DECIMAL_DIGITS,
@@ -75,6 +76,12 @@ const separatorLabelElement: LabelElement = {
   value: '|',
 };
 
+const FULLY_REFUNDED_LABEL_ELEMENT: LabelElement = {
+  flexShrink: 1,
+  onOverflow: 'truncate' as const,
+  value: '(Fully refunded)',
+};
+
 function createProductCategoryMap(
   orderAggregationsData: TargetAPIOrderAggregationsData,
 ): ProductCategoryMap {
@@ -87,7 +94,7 @@ function createProductCategoryMap(
           productTypeName != null
             ? titleCase(productTypeName.toLowerCase())
             : DEFAULT_PRODUCT_CATEGORY;
-        console.log(`Product type name: ${productTypeName} | Category: ${cat}`);
+        // console.log(`Product type name: ${productTypeName} | Category: ${cat}`);
         acc[currentValue.item.tcin] = cat;
         return acc;
       },
@@ -108,7 +115,7 @@ function getCombinedDescriptionForInvoiceLineItems({
   isRefund: boolean;
   items: InvoiceLineItemData[];
   lineItemDescriptionMaxWordCount: number | null;
-}) {
+}): LabelElement[] {
   const itemsSorted = items
     .slice()
     .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
@@ -451,9 +458,44 @@ export function getLabelsFromTargetOrderData(
   const transactions: StandardTransactionTypeWithLabelElements[] =
     data.invoiceAndOrderData.flatMap(
       (invoiceAndOrderDataEntry, _invoiceAndOrderDataIndex) => {
+        const {_orderNumber: orderNumber} = invoiceAndOrderDataEntry;
         const productCategoryMap = createProductCategoryMap(
           invoiceAndOrderDataEntry.orderAggregationsData,
         );
+
+        let netCharge: number | null = null;
+
+        // Determine whether the whole order was refunded, and add an annotation if so
+        invoiceAndOrderDataEntry.invoicesData.forEach((invoiceDetail) => {
+          const {totalChargedToCard} = getCardPaymentBreakdown({
+            config,
+            invoiceDetail,
+            orderNumber: invoiceAndOrderDataEntry._orderNumber,
+          });
+
+          if (totalChargedToCard != null) {
+            if (netCharge == null) {
+              netCharge = 0;
+            }
+            netCharge += totalChargedToCard;
+          }
+        });
+
+        console.log(`Net charge for order ${orderNumber}:`, netCharge);
+
+        // // Determine whether the whole order was refunded, and add an annotation if so
+        // const netChargeAcrossAllInvoices =
+        //   invoiceAndOrderDataEntry.invoicesData.reduce<number>(
+        //     (acc, currentInvoiceDetail) => {
+        //       const {otherPayments, primaryCardPayment, totalChargedToCard} =
+        //         getCardPaymentBreakdown({
+        //           config,
+        //           currentInvoiceDetail,
+        //           orderNumber: invoiceAndOrderDataEntry._orderNumber,
+        //         });
+        //     },
+        //     0,
+        //   );
 
         const transactionsFromInvoiceData =
           invoiceAndOrderDataEntry.invoicesData.map(
@@ -493,7 +535,7 @@ export function getLabelsFromTargetOrderData(
                 ? LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT
                 : null;
 
-              const memoLabel = getCombinedDescriptionForInvoiceLineItems({
+              const memoLabelBase = getCombinedDescriptionForInvoiceLineItems({
                 // We don't want to include prices in the main transaction memo since they'll be visible in the subtransactions/subtransaction memos
                 includePricesForGroupedItemsInMemo: false,
                 isRefund,
@@ -502,6 +544,16 @@ export function getLabelsFromTargetOrderData(
                 ),
                 lineItemDescriptionMaxWordCount: maxWordCount,
               });
+
+              const memoLabel =
+                netCharge != null &&
+                areEqualWithPrecision(
+                  netCharge,
+                  0,
+                  HARDCODED_CURRENCY_DECIMAL_DIGITS,
+                )
+                  ? [FULLY_REFUNDED_LABEL_ELEMENT].concat(memoLabelBase)
+                  : memoLabelBase;
 
               const subTransactionsStripped =
                 subTransactions != null && subTransactions.length > 1
