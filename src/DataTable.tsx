@@ -115,7 +115,7 @@ export default function DataTable({
         hoverRow
         size={size}
         stickyHeader
-        stripe="odd"
+        // stripe="odd"
         sx={{
           '--Table-headerUnderlineThickness': '1px',
           '--TableCell-cornerRadius': 0,

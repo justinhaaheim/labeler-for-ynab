@@ -44,6 +44,15 @@ export interface StandardTransactionType {
   payee: string;
 }
 
+export interface StandardTransactionTypeWithSubtransactions {
+  amount: number;
+  date: string;
+  id: string;
+  memo: string;
+  payee: string;
+  subTransactions?: ynab.SaveSubTransaction[];
+}
+
 // TODO NEXT: Write a converter between StandardTransactionTypeWithLabelElements and StandardTransactionType so that we can easily render the non-finalized matches into a table
 export interface StandardTransactionTypeWithLabelElements {
   amount: number;

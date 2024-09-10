@@ -202,7 +202,7 @@ function App() {
   const [updateLogsList, setUpdateLogsList] = useState<UpdateLogChunkV1[]>([]);
 
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
-    useState<boolean>(false);
+    useState<boolean>(getIsDevMode());
 
   const matchCandidates = useMemo<MatchCandidate[] | null>(() => {
     if (labelsWithLabelElements == null || transactions == null) {
