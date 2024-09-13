@@ -76,12 +76,6 @@ const separatorLabelElement: LabelElement = {
   value: '|',
 };
 
-const FULLY_REFUNDED_LABEL_ELEMENT: LabelElement = {
-  flexShrink: 1,
-  onOverflow: 'truncate' as const,
-  value: '(Fully refunded)',
-};
-
 function createProductCategoryMap(
   orderAggregationsData: TargetAPIOrderAggregationsData,
 ): ProductCategoryMap {
@@ -102,6 +96,74 @@ function createProductCategoryMap(
     ) ?? {};
 
   return {...PRODUCT_CATEGORY_MAP_HARDCODED_ITEMS, ...map};
+}
+
+type PairedInvoiceCharge = {
+  date: Date;
+  invoiceID: string;
+  pairedChargeInverseAmountInvoiceID: string | null;
+  totalChargedToCard: number | null;
+};
+
+function getPairedInvoiceCharges({
+  invoicesData,
+  config,
+  orderNumber,
+}: {
+  config: TargetConverterOptionsConfig;
+  invoicesData: InvoiceDetail[];
+  orderNumber: string;
+}): PairedInvoiceCharge[] {
+  // Determine whether the whole order was refunded, and add an annotation if so
+  const invoiceCharges = invoicesData.map<PairedInvoiceCharge>(
+    (invoiceDetail) => {
+      // Reminder: totalChargedToCard is negative for a debit, positive for a credit/refund
+      const {totalChargedToCard} = getCardPaymentBreakdown({
+        config,
+        invoiceDetail,
+        orderNumber: orderNumber,
+      });
+
+      return {
+        date: invoiceDetail.date,
+        invoiceID: invoiceDetail.id,
+        pairedChargeInverseAmountInvoiceID: null,
+        totalChargedToCard,
+      };
+    },
+  );
+
+  invoiceCharges.forEach((mainCharge) => {
+    if (
+      mainCharge.pairedChargeInverseAmountInvoiceID == null &&
+      invoiceCharges.length > 1
+    ) {
+      invoiceCharges
+        .filter(
+          (c) =>
+            c.invoiceID !== mainCharge.invoiceID &&
+            c.pairedChargeInverseAmountInvoiceID == null,
+        )
+        .forEach((otherInvoiceCharge) => {
+          if (
+            mainCharge.totalChargedToCard != null &&
+            otherInvoiceCharge.totalChargedToCard != null &&
+            areEqualWithPrecision(
+              mainCharge.totalChargedToCard,
+              -1 * otherInvoiceCharge.totalChargedToCard,
+              HARDCODED_CURRENCY_DECIMAL_DIGITS,
+            )
+          ) {
+            mainCharge.pairedChargeInverseAmountInvoiceID =
+              otherInvoiceCharge.invoiceID;
+            otherInvoiceCharge.pairedChargeInverseAmountInvoiceID =
+              mainCharge.invoiceID;
+          }
+        });
+    }
+  });
+
+  return invoiceCharges;
 }
 
 // TODO: Add option to include dollar amount for each item, and then use this to create a memo when we optionally group subtransactions by category
@@ -463,39 +525,16 @@ export function getLabelsFromTargetOrderData(
           invoiceAndOrderDataEntry.orderAggregationsData,
         );
 
-        let netCharge: number | null = null;
-
-        // Determine whether the whole order was refunded, and add an annotation if so
-        invoiceAndOrderDataEntry.invoicesData.forEach((invoiceDetail) => {
-          const {totalChargedToCard} = getCardPaymentBreakdown({
-            config,
-            invoiceDetail,
-            orderNumber: invoiceAndOrderDataEntry._orderNumber,
-          });
-
-          if (totalChargedToCard != null) {
-            if (netCharge == null) {
-              netCharge = 0;
-            }
-            netCharge += totalChargedToCard;
-          }
+        const pairedInvoiceCharges = getPairedInvoiceCharges({
+          config,
+          invoicesData: invoiceAndOrderDataEntry.invoicesData,
+          orderNumber,
         });
 
-        console.log(`Net charge for order ${orderNumber}:`, netCharge);
-
-        // // Determine whether the whole order was refunded, and add an annotation if so
-        // const netChargeAcrossAllInvoices =
-        //   invoiceAndOrderDataEntry.invoicesData.reduce<number>(
-        //     (acc, currentInvoiceDetail) => {
-        //       const {otherPayments, primaryCardPayment, totalChargedToCard} =
-        //         getCardPaymentBreakdown({
-        //           config,
-        //           currentInvoiceDetail,
-        //           orderNumber: invoiceAndOrderDataEntry._orderNumber,
-        //         });
-        //     },
-        //     0,
-        //   );
+        console.log(
+          `Invoice charges for order ${orderNumber}:`,
+          pairedInvoiceCharges,
+        );
 
         const transactionsFromInvoiceData =
           invoiceAndOrderDataEntry.invoicesData.map(
@@ -545,15 +584,37 @@ export function getLabelsFromTargetOrderData(
                 lineItemDescriptionMaxWordCount: maxWordCount,
               });
 
-              const memoLabel =
-                netCharge != null &&
-                areEqualWithPrecision(
-                  netCharge,
-                  0,
-                  HARDCODED_CURRENCY_DECIMAL_DIGITS,
-                )
-                  ? [FULLY_REFUNDED_LABEL_ELEMENT].concat(memoLabelBase)
-                  : memoLabelBase;
+              // This is the chargeObject of the invoice that's paired with this one
+              const pairedInvoiceChargeObject = pairedInvoiceCharges.find(
+                (c) =>
+                  c.pairedChargeInverseAmountInvoiceID === invoiceDetail.id,
+              );
+
+              const refundLabelElements: LabelElement[] = [];
+
+              if (pairedInvoiceChargeObject?.totalChargedToCard != null) {
+                if (pairedInvoiceChargeObject.totalChargedToCard > 0) {
+                  // The paired invoice is a refund because, remember, totalChargedToCard is negative for a debit, positive for a credit/refund
+                  refundLabelElements.push({
+                    flexShrink: 1,
+                    onOverflow: 'truncate',
+                    value: `(Fully refunded ${getDateString(
+                      pairedInvoiceChargeObject.date,
+                    )})`,
+                  });
+                } else {
+                  // The paired invoice is a charge
+                  refundLabelElements.push({
+                    flexShrink: 1,
+                    onOverflow: 'truncate',
+                    value: `(Full refund of ${getDateString(
+                      pairedInvoiceChargeObject.date,
+                    )})`,
+                  });
+                }
+              }
+
+              const memoLabel = refundLabelElements.concat(memoLabelBase);
 
               const subTransactionsStripped =
                 subTransactions != null && subTransactions.length > 1

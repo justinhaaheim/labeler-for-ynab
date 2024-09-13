@@ -74,12 +74,12 @@ export function areEqualWithPrecision(
 export function convertUSDToMilliunits(amount: number): number {
   const rawValue = amount * 1000;
   const roundedValue = Math.round(rawValue);
-  if (rawValue !== roundedValue) {
-    console.warn(
-      '[convertUSDToMilliunits] converting to milliunits had extra digits of precision (likely floating point arithemtic error):',
-      {amount, rawValue, roundedValue},
-    );
-  }
+  // if (rawValue !== roundedValue) {
+  //   console.warn(
+  //     '[convertUSDToMilliunits] converting to milliunits had extra digits of precision (likely floating point arithemtic error):',
+  //     {amount, rawValue, roundedValue},
+  //   );
+  // }
   return roundedValue;
 }
 
