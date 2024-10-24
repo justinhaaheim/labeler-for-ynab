@@ -66,7 +66,7 @@ const SINGLE_SPACE = ' ';
 const NO_DESCRIPTION_TEXT = '(no description)';
 const NO_LINE_ITEMS_TEXT = '(no line items)';
 const DEFAULT_PRODUCT_CATEGORY = 'Unknown Category';
-const LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT = 4;
+const LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT = 3;
 
 // TODO: Change this back to commas, and create a way to have the comma immediately follow the text before it, but leave a space afterwards
 // OR... just create a single label element for the whole comma separated string, since that should have the same effect in the current system.
@@ -178,6 +178,11 @@ function getCombinedDescriptionForInvoiceLineItems({
   items: InvoiceLineItemData[];
   lineItemDescriptionMaxWordCount: number | null;
 }): LabelElement[] {
+  console.log('🐿️ Items:', items);
+  console.log(
+    'includePricesForGroupedItemsInMemo:',
+    includePricesForGroupedItemsInMemo,
+  );
   const itemsSorted = items
     .slice()
     .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
@@ -507,6 +512,11 @@ function getSubtransactionsFromInvoiceDetail({
   return subTransactions;
 }
 
+function getTargetInvoiceURL(orderID: string, invoiceID: string): string {
+  // NOTE: we exclude www. here to keep the URL shorter
+  return `https://target.com/orders/${orderID}/invoices/${invoiceID}`;
+}
+
 export function getLabelsFromTargetOrderData(
   data: CombinedOutputData,
   config: TargetConverterOptionsConfig,
@@ -574,6 +584,10 @@ export function getLabelsFromTargetOrderData(
                 ? LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT
                 : null;
 
+              // TODO: subTransactions ALREADY HAVE the prices embedded in the memo, so if we don't want any prices in the parent transaction memo we need to RE-GENERATE the subtransaction memos without prices
+              console.log(
+                '🚚 GETTING COMBINED DESCRIPTION FOR PARENT TRANSACTION',
+              );
               const memoLabelBase = getCombinedDescriptionForInvoiceLineItems({
                 // We don't want to include prices in the main transaction memo since they'll be visible in the subtransactions/subtransaction memos
                 includePricesForGroupedItemsInMemo: false,
@@ -583,6 +597,8 @@ export function getLabelsFromTargetOrderData(
                 ),
                 lineItemDescriptionMaxWordCount: maxWordCount,
               });
+
+              console.log('💫 Memo label base (no prices):', memoLabelBase);
 
               // This is the chargeObject of the invoice that's paired with this one
               const pairedInvoiceChargeObject = pairedInvoiceCharges.find(
@@ -598,7 +614,7 @@ export function getLabelsFromTargetOrderData(
                   refundLabelElements.push({
                     flexShrink: 1,
                     onOverflow: 'truncate',
-                    value: `(Fully refunded ${getDateString(
+                    value: `(Fully refunded on ${getDateString(
                       pairedInvoiceChargeObject.date,
                     )})`,
                   });
@@ -614,7 +630,18 @@ export function getLabelsFromTargetOrderData(
                 }
               }
 
-              const memoLabel = refundLabelElements.concat(memoLabelBase);
+              const invoiceURL = getTargetInvoiceURL(
+                orderNumber,
+                invoiceDetail.id,
+              );
+
+              const invoiceURLLabelElements: LabelElement[] = [
+                {flexShrink: 0, onOverflow: 'omit', value: invoiceURL},
+              ];
+
+              const memoLabel = refundLabelElements
+                .concat(invoiceURLLabelElements)
+                .concat(memoLabelBase);
 
               const subTransactionsStripped =
                 subTransactions != null && subTransactions.length > 1
