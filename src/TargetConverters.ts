@@ -640,8 +640,10 @@ export function getLabelsFromTargetOrderData(
               ];
 
               const memoLabel = refundLabelElements
-                .concat(invoiceURLLabelElements)
-                .concat(memoLabelBase);
+                .concat(
+                  subTransactionsNonNullable.length > 1 ? [] : memoLabelBase,
+                )
+                .concat(config.includeLinks ? invoiceURLLabelElements : []);
 
               const subTransactionsStripped =
                 subTransactions != null && subTransactions.length > 1

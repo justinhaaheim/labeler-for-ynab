@@ -400,7 +400,7 @@ export function convertParsedLabelsToStandardTransaction(
       return getLabelsFromTargetOrderData(parsedLabels.labels, {
         cardType: TARGET_PAYMENT_DEFAULT_NAME,
         groupByProductCategory: true,
-        includeLinks: false,
+        includeLinks: true,
         includePricesForGroupedItemsInMemo: true,
         linkType: 'plain',
         shortenLinks: false,
