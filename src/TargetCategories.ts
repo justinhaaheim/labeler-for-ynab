@@ -39,7 +39,7 @@ const categoryToPrettyNameMap: CategoryMap = {
   },
   GROCERY: {emoji: '🍎🧃', prettyName: 'Grocery', shortPrettyName: 'Grocery'},
   'HEALTH AND BEAUTY': {
-    emoji: '💄🧻',
+    emoji: '🧻💄',
     prettyName: 'Health & Beauty',
     shortPrettyName: 'Health',
   },
