@@ -83,7 +83,7 @@ function createProductCategoryMap(
     orderAggregationsData?.['order_lines'].reduce<Record<string, string>>(
       (acc, currentValue) => {
         const productTypeName =
-          currentValue.item.product_classification.product_type_name;
+          currentValue.item.product_classification?.product_type_name ?? null;
 
         // Note: we were previously putting this in title case: // ? titleCase(productTypeName.toLowerCase())
         const cat =

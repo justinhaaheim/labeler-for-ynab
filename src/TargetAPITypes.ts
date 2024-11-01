@@ -9,6 +9,7 @@ export const PaymentDetailZod = z.object({
   total_charged: z.number(),
   type: z.string(),
 });
+
 export type PaymentDetail = z.infer<typeof PaymentDetailZod>;
 
 const InvoiceLinesObjectItem = z.object({
@@ -31,14 +32,6 @@ const InvoiceLinesObject = z.object({
   unit_price: z.number(), // how much each item costs
 });
 
-/**
- * Instead, if you want to pass through unknown keys, use .passthrough() .
- * 
- * person.passthrough().parse({
-  name: "bob dylan",
-  extraKey: 61,
-});
- */
 export const InvoiceDetailZod = z.object({
   date: z.coerce.date(), // "2024-08-17T19:05:52.000Z"
   // date: z.string(), // "2024-08-18T20:41:55.000Z",
@@ -54,19 +47,13 @@ export const InvoiceDetailZod = z.object({
 
 export type InvoiceDetail = z.infer<typeof InvoiceDetailZod>;
 
-export const TargetAPIInvoiceOverviewObjectZod =
-  // z.record(z.unknown()).and(
-  z
-    .object({
-      amount: z.number(),
-      date: z.coerce.date(), // "2024-08-17T19:05:52.000Z"
-      id: z.string(),
-      receipt_id: z.string(),
-      type: z.string(), // "SHIPMENT"
-    })
-    // TODO: Decide if passthrough is the right way to handle this
-    .passthrough();
-// );
+export const TargetAPIInvoiceOverviewObjectZod = z.object({
+  amount: z.number(),
+  date: z.coerce.date(), // "2024-08-17T19:05:52.000Z"
+  id: z.string(),
+  receipt_id: z.string(),
+  type: z.string(), // "SHIPMENT"
+});
 
 export type TargetAPIInvoiceOverviewObject = z.infer<
   typeof TargetAPIInvoiceOverviewObjectZod
@@ -99,21 +86,28 @@ const TargetAPIOrderLinesObjectZod = z.object({
 
 // Originally this was export const targetAPIOrderHistoryItemSchema = z.record(z.unknown()).and( ...
 // which lets in any arbitrary keys.
-export const TargetAPIOrderHistoryObjectZod = z.record(z.unknown()).and(
-  z.object({
-    // address: (store address) ...
-    order_lines: z.array(TargetAPIOrderLinesObjectZod),
-    order_number: z.string(),
-    order_purchase_type: z.string(), // "ONLINE"
-    placed_date: z.string(), // "2024-08-17T12:58:39-05:00",
-    summary: z.object({
-      grand_total: z.string(), // Strange this isn't a number
-    }),
+export const TargetAPIOrderHistoryObjectZod = z.object({
+  // address: (store address) ...
+  order_lines: z.array(TargetAPIOrderLinesObjectZod),
+  order_number: z.string(),
+  order_purchase_type: z.string(), // "ONLINE"
+  placed_date: z.string(), // "2024-08-17T12:58:39-05:00",
+  summary: z.object({
+    grand_total: z.string(), // Strange this isn't a number
   }),
-);
+  tenant_key: z.string(), // "Target.com"
+});
 
 export type TargetAPIOrderHistoryObject = z.infer<
   typeof TargetAPIOrderHistoryObjectZod
+>;
+
+const TargetAPIOrderHistoryBaseObjectZod = TargetAPIOrderHistoryObjectZod.pick({
+  placed_date: true,
+});
+
+export type TargetAPIOrderHistoryBaseObject = z.infer<
+  typeof TargetAPIOrderHistoryBaseObjectZod
 >;
 
 export const TargetAPIOrderHistoryObjectArrayZod = z.array(
@@ -124,18 +118,44 @@ export type TargetAPIOrderHistoryObjectArray = z.infer<
   typeof TargetAPIOrderHistoryObjectArrayZod
 >;
 
+export const TargetAPIOrderHistoryAPIResponseZod = z.object({
+  orders: TargetAPIOrderHistoryObjectArrayZod,
+  request: z.object({
+    page_number: z.number(),
+    page_size: z.number(),
+  }),
+});
+
+export type TargetAPIOrderHistoryAPIResponse = z.infer<
+  typeof TargetAPIOrderHistoryAPIResponseZod
+>;
+
+// A "loose" type that just guarantees page_number and page_size are there, and that orders is an array
+export const TargetAPIOrderHistoryAPILooseResponseZod =
+  TargetAPIOrderHistoryAPIResponseZod.extend({
+    // This just ensures that placed_date is present
+    orders: z.array(TargetAPIOrderHistoryBaseObjectZod),
+  });
+
+export type TargetAPIOrderHistoryAPILooseResponse = z.infer<
+  typeof TargetAPIOrderHistoryAPILooseResponseZod
+>;
+
 ///////////////////////////////////////////////////////////
 // Order Aggregations Data (used for getting item categories)
 ///////////////////////////////////////////////////////////
 
 const TargetAPIOrderAggregationsOrderLinesItemFullZod =
   TargetAPIBaseItemZod.extend({
-    product_classification: z.object({
-      merchandise_type_name: z.string().optional(), // "Oral Care"
-      // I'm not sure if these are optional or not, but let's assume they are
-      product_subtype_name: z.string().optional(), // "BEVERAGE"
-      product_type_name: z.string().optional(), // "GROCERY"
-    }),
+    // I saw one case where this wasn't present for some reason, so let's consider it optional
+    product_classification: z.optional(
+      z.object({
+        merchandise_type_name: z.string().optional(), // "Oral Care"
+        // I'm not sure if these are optional or not, but let's assume they are
+        product_subtype_name: z.string().optional(), // "BEVERAGE"
+        product_type_name: z.string().optional(), // "GROCERY"
+      }),
+    ),
   });
 
 const TargetAPIOrderAggregationsOrderLinesObjectZod =
@@ -175,15 +195,21 @@ export type InvoiceOrderAndAggregationsData = z.infer<
   typeof InvoiceOrderAndAggregationsDataZod
 >;
 
-export const OutputDataZod = z.object({
+export const OutputDataBaseZod = z.object({
   _createdTimestamp: z.number(),
   _params: z.object({
-    orderCount: z.number(),
+    orderCount: z.number().nullable(),
+    startDate: z.date().nullable(),
   }),
 });
-export type OutputData = z.infer<typeof OutputDataZod>;
+export type OutputDataBase = z.infer<typeof OutputDataBaseZod>;
 
-export const CombinedOutputDataZod = OutputDataZod.extend({
+export const OrderHistoryOutputDataZod = OutputDataBaseZod.extend({
+  orderHistoryData: TargetAPIOrderHistoryObjectArrayZod,
+});
+export type OrderHistoryOutputData = z.infer<typeof OrderHistoryOutputDataZod>;
+
+export const CombinedOutputDataZod = OutputDataBaseZod.extend({
   invoiceAndOrderData: z.array(InvoiceOrderAndAggregationsDataZod),
 });
 export type CombinedOutputData = z.infer<typeof CombinedOutputDataZod>;
