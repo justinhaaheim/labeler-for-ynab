@@ -37,6 +37,11 @@ const categoryToPrettyNameMap: CategoryMap = {
     prettyName: 'Electronics',
     shortPrettyName: 'Electronics',
   },
+  FURNITURE: {
+    emoji: '🪑',
+    prettyName: 'Furniture',
+    shortPrettyName: 'Furniture',
+  },
   GROCERY: {emoji: '🍎🧃', prettyName: 'Grocery', shortPrettyName: 'Grocery'},
   'HEALTH AND BEAUTY': {
     emoji: '🧻💄',
