@@ -7,7 +7,6 @@ import type {
   TargetAPIOrderAggregationsData,
 } from './TargetAPITypes';
 
-import {titleCase} from 'title-case';
 import {type SaveSubTransaction, utils as ynabUtils} from 'ynab';
 
 import {
@@ -25,6 +24,7 @@ import {
   renderLabel,
 } from './LabelElements';
 import {trimToYNABMaxMemoLength, YNAB_MAX_MEMO_LENGTH} from './Sync';
+import {getCategoryEmojiOrFallback} from './TargetCategories';
 
 export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   /**
@@ -84,11 +84,12 @@ function createProductCategoryMap(
       (acc, currentValue) => {
         const productTypeName =
           currentValue.item.product_classification.product_type_name;
+
+        // Note: we were previously putting this in title case: // ? titleCase(productTypeName.toLowerCase())
         const cat =
-          productTypeName != null
-            ? titleCase(productTypeName.toLowerCase())
-            : DEFAULT_PRODUCT_CATEGORY;
+          productTypeName != null ? productTypeName : DEFAULT_PRODUCT_CATEGORY;
         // console.log(`Product type name: ${productTypeName} | Category: ${cat}`);
+
         acc[currentValue.item.tcin] = cat;
         return acc;
       },
@@ -314,7 +315,7 @@ function groupSubtransactionsByCategory({
         const categoryLabelElement: LabelElement = {
           flexShrink: 1,
           onOverflow: 'truncate',
-          value: `[${category}]`,
+          value: category,
         };
 
         const combinedDescriptionLabelElements =
@@ -393,12 +394,18 @@ function getSubtransactionsFromInvoiceDetail({
         (line.quantity > 1 ? `${line.quantity}x ` : '') +
         (line.item.description ?? '(no item description)');
 
-      const productCategory =
+      const productCategoryBase =
         productCategoryMap[line.item.tcin] ?? DEFAULT_PRODUCT_CATEGORY;
+
+      const {value: categoryValue, isEmoji} =
+        getCategoryEmojiOrFallback(productCategoryBase);
+
+      const categoryToUse = isEmoji ? categoryValue : `[${categoryValue}]`;
+
       return {
         _invoiceLineItemData: {
           amount: -1 * line.effective_amount,
-          category: productCategory,
+          category: categoryToUse,
           description: line.item.description ?? null,
           quantity: line.quantity,
           tcin: line.item.tcin,
@@ -407,7 +414,7 @@ function getSubtransactionsFromInvoiceDetail({
         // Flip the sign since we're now considering this a debit on a bank account
         amount: -1 * convertUSDToMilliunits(line.effective_amount),
         memo: trimToYNABMaxMemoLength(
-          `[${productCategory}] ${newMemoNotTruncated}`,
+          `${categoryToUse} ${newMemoNotTruncated}`,
         ),
         // payee_name: 'Target',
       };
