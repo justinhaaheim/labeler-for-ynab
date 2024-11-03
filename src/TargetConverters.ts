@@ -28,6 +28,7 @@ import {
   getFormattedCategoryOrFallback,
   getShouldItemizeIndividually,
 } from './TargetCategories';
+import {htmlEntityDecode} from './Utils';
 
 export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   /**
@@ -503,9 +504,14 @@ function getSubtransactionsFromInvoiceDetail({
 
   const subTransactionsUngrouped: SaveSubTransactionWithTargetLineData[] =
     invoiceDetail.lines.map((line) => {
+      const description =
+        line.item.description != null
+          ? htmlEntityDecode(line.item.description)
+          : '(no item description)';
+
       const newMemoNotTruncated =
         (line.quantity > 1 ? `${line.quantity}x ` : '') +
-        (line.item.description ?? '(no item description)');
+        (description ?? '(no item description)');
 
       const productCategoryBase =
         productCategoryMap[line.item.tcin] ?? DEFAULT_PRODUCT_CATEGORY;
@@ -519,7 +525,7 @@ function getSubtransactionsFromInvoiceDetail({
         _invoiceLineItemData: {
           amount: -1 * line.effective_amount,
           category: productCategoryBase,
-          description: line.item.description ?? null,
+          description: description,
           quantity: line.quantity,
           tcin: line.item.tcin,
           type: 'lineItem' as const,
@@ -555,7 +561,10 @@ function getSubtransactionsFromInvoiceDetail({
       );
       return;
     }
-    const description = p.sub_type_value ?? '(unknown payment type)';
+    const description =
+      p.sub_type_value != null
+        ? htmlEntityDecode(p.sub_type_value)
+        : '(unknown payment type)';
 
     subTransactions.push({
       _invoiceLineItemData: {
