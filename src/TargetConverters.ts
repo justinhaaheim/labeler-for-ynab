@@ -352,14 +352,31 @@ function groupAndSortSubtransactionsByCategory({
     Object.values(categoryBucketsForSubtransactions),
   );
 
+  /**
+   * Final sorting and grouping
+   *
+   * What we want to do here is have the subtransaction groups show up in descending order
+   * based on their amount, but also have all subtransaction groups with the same category
+   * show up together:
+   *
+   * Grocery $50
+   * Health & Beauty $30
+   * Health & Beauty $5
+   * Electronics $20
+   * Office Supplies $15
+   * Office Supplies $2
+   *
+   * We accomplish this by first sorting all the groups by amount, and then iterating through
+   * that list to temporarily re-group them by category, and then finally flattening that list
+   */
   const sortedCombinedSubtransactionGroups = combinedSubtransactionGroups
     .slice()
     .sort((a, b) => {
-      // Sort by category first, then by total amount from highest to lowest
-      const localeCompared = a.category.localeCompare(b.category);
-      if (localeCompared !== 0) {
-        return localeCompared;
-      }
+      // // Sort by category first, then by total amount from highest to lowest
+      // const localeCompared = a.category.localeCompare(b.category);
+      // if (localeCompared !== 0) {
+      //   return localeCompared;
+      // }
 
       // Sort by total amount in descending order
       return isRefund
@@ -367,8 +384,40 @@ function groupAndSortSubtransactionsByCategory({
         : a.categoryTotalMillis - b.categoryTotalMillis;
     });
 
+  // Now group any other subtransactions of the same category under the first one to show up when sorted by amount
+  const subtransactionsGroupedByCategory: Array<{
+    category: string;
+    subtransactionGroups: Array<SubtransactionGroupWithCategory>;
+  }> = [];
+
+  sortedCombinedSubtransactionGroups.forEach((subtransactionGroup) => {
+    const {category} = subtransactionGroup;
+
+    const bucket = subtransactionsGroupedByCategory.find(
+      (e) => e.category === category,
+    );
+
+    if (bucket != null) {
+      bucket.subtransactionGroups.push(subtransactionGroup);
+      return;
+    }
+
+    subtransactionsGroupedByCategory.push({
+      category,
+      subtransactionGroups: [subtransactionGroup],
+    });
+  });
+
+  const finalizedSortedSubtransactionGroups = subtransactionsGroupedByCategory
+    .map((g) => g.subtransactionGroups)
+    .flat();
+
+  /**
+   * [END] Final sorting and grouping
+   */
+
   const groupedSubtransactions: SaveSubTransactionWithTargetLineData[] =
-    sortedCombinedSubtransactionGroups.map((group) => {
+    finalizedSortedSubtransactionGroups.map((group) => {
       const {
         category,
         subtransactions: subtransactionsInCategory,

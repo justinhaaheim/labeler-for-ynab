@@ -24,19 +24,9 @@ type CategoryMap = Record<
   }
 >;
 
-// 'APPAREL', 👗
-// 'ELECTRONICS', 🎧
-// 'GROCERY', 🍎 🧃
-// 'HEALTH AND BEAUTY', 💄 🧻
-// 'HOME', 🏡
-// 'KITCHEN', 🍴
-// 'LAUNDRY CLEANING AND CLOSET',  🧼
-// 'PATIO & OUTDOOR DECOR', ⛱️ 🌱
-// 'STATIONERY & OFFICE SUPPLIES', 📌
-
 // TODO: Figure out how YNAB counts emojis in terms of character count to make sure that a big sync doesn't fail
 const targetCategoryConfig: CategoryMap = {
-  APPAREL: {emoji: '👗', prettyName: 'Apparel', shortPrettyName: 'Apparel'},
+  APPAREL: {emoji: '👗🧦', prettyName: 'Apparel', shortPrettyName: 'Apparel'},
   ELECTRONICS: {
     alwaysItemizeIndividually: true,
     emoji: '🎧',
