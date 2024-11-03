@@ -302,28 +302,15 @@ function groupAndSortSubtransactionsByCategory({
   subtransactions: SaveSubTransactionWithTargetLineData[];
 }): SaveSubTransactionWithTargetLineData[] {
   const categoryBucketsForSubtransactions: Record<
-    string,
+    string, // category
     SubtransactionGroupWithCategory
   > = {};
 
-  const itemizedSubtransactions: Array<SubtransactionGroupWithCategory> = [];
-
-  // Group subtransactions, except if they should be itemized individually
+  // Group subtransactions by category
   subtransactions.forEach((currentSubtransaction) => {
     const category =
       currentSubtransaction._invoiceLineItemData.category ??
       DEFAULT_PRODUCT_CATEGORY;
-
-    const shouldItemizeIndividually = getShouldItemizeIndividually(category);
-
-    if (shouldItemizeIndividually) {
-      itemizedSubtransactions.push({
-        category,
-        categoryTotalMillis: currentSubtransaction.amount,
-        subtransactions: [currentSubtransaction],
-      });
-      return;
-    }
 
     const previousSubtransactionGroupWithCategory =
       categoryBucketsForSubtransactions[category] ?? {
@@ -349,9 +336,7 @@ function groupAndSortSubtransactionsByCategory({
     return;
   });
 
-  const combinedSubtransactionGroups = itemizedSubtransactions.concat(
-    Object.values(categoryBucketsForSubtransactions),
-  );
+  const subtransactionGroups = Object.values(categoryBucketsForSubtransactions);
 
   /**
    * Final sorting and grouping
@@ -370,7 +355,7 @@ function groupAndSortSubtransactionsByCategory({
    * We accomplish this by first sorting all the groups by amount, and then iterating through
    * that list to temporarily re-group them by category, and then finally flattening that list
    */
-  const sortedCombinedSubtransactionGroups = combinedSubtransactionGroups
+  const sortedSubtransactionGroups = subtransactionGroups
     .slice()
     .sort((a, b) => {
       // // Sort by category first, then by total amount from highest to lowest
@@ -385,33 +370,44 @@ function groupAndSortSubtransactionsByCategory({
         : a.categoryTotalMillis - b.categoryTotalMillis;
     });
 
-  // Now group any other subtransactions of the same category under the first one to show up when sorted by amount
-  const subtransactionsGroupedByCategory: Array<{
-    category: string;
-    subtransactionGroups: Array<SubtransactionGroupWithCategory>;
-  }> = [];
+  // // Now group any other subtransactions of the same category under the first one to show up when sorted by amount
+  // const subtransactionsGroupedByCategory: Array<{
+  //   category: string;
+  //   subtransactionGroups: Array<SubtransactionGroupWithCategory>;
+  // }> = [];
 
-  sortedCombinedSubtransactionGroups.forEach((subtransactionGroup) => {
-    const {category} = subtransactionGroup;
+  // sortedSubtransactionGroups.forEach((subtransactionGroup) => {
+  //   const {category} = subtransactionGroup;
 
-    const bucket = subtransactionsGroupedByCategory.find(
-      (e) => e.category === category,
-    );
+  //   const bucket = subtransactionsGroupedByCategory.find(
+  //     (e) => e.category === category,
+  //   );
 
-    if (bucket != null) {
-      bucket.subtransactionGroups.push(subtransactionGroup);
-      return;
-    }
+  //   if (bucket != null) {
+  //     bucket.subtransactionGroups.push(subtransactionGroup);
+  //     return;
+  //   }
 
-    subtransactionsGroupedByCategory.push({
-      category,
-      subtransactionGroups: [subtransactionGroup],
-    });
-  });
+  //   subtransactionsGroupedByCategory.push({
+  //     category,
+  //     subtransactionGroups: [subtransactionGroup],
+  //   });
+  // });
 
-  const finalizedSortedSubtransactionGroups = subtransactionsGroupedByCategory
-    .map((g) => g.subtransactionGroups)
-    .flat();
+  const finalizedSortedSubtransactionGroups: Array<SubtransactionGroupWithCategory> =
+    sortedSubtransactionGroups
+      .map((g) => {
+        if (getShouldItemizeIndividually(g.category)) {
+          return g.subtransactions.map((st) => ({
+            category: g.category,
+            categoryTotalMillis: st.amount,
+            subtransactions: [st],
+          }));
+        }
+
+        return g;
+      })
+      .flat();
 
   /**
    * [END] Final sorting and grouping
@@ -508,6 +504,11 @@ function getSubtransactionsFromInvoiceDetail({
         line.item.description != null
           ? htmlEntityDecode(line.item.description)
           : '(no item description)';
+
+      // nocommit
+      if (description.includes('Kleenex')) {
+        debugger;
+      }
 
       const newMemoNotTruncated =
         (line.quantity > 1 ? `${line.quantity}x ` : '') +
