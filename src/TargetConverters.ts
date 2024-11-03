@@ -505,13 +505,8 @@ function getSubtransactionsFromInvoiceDetail({
           ? htmlEntityDecode(line.item.description)
           : '(no item description)';
 
-      // nocommit
-      if (description.includes('Kleenex')) {
-        debugger;
-      }
-
       const newMemoNotTruncated =
-        (line.quantity > 1 ? `${line.quantity}x ` : '') +
+        (line.shipped_quantity > 1 ? `${line.shipped_quantity}x ` : '') +
         (description ?? '(no item description)');
 
       const productCategoryBase =
@@ -527,7 +522,7 @@ function getSubtransactionsFromInvoiceDetail({
           amount: -1 * line.effective_amount,
           category: productCategoryBase,
           description: description,
-          quantity: line.quantity,
+          quantity: line.shipped_quantity,
           tcin: line.item.tcin,
           type: 'lineItem' as const,
         },
