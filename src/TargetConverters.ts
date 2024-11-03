@@ -24,7 +24,10 @@ import {
   renderLabel,
 } from './LabelElements';
 import {trimToYNABMaxMemoLength, YNAB_MAX_MEMO_LENGTH} from './Sync';
-import {getCategoryEmojiOrFallback} from './TargetCategories';
+import {
+  getFormattedCategoryOrFallback,
+  getShouldItemizeIndividually,
+} from './TargetCategories';
 
 export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   /**
@@ -282,7 +285,13 @@ function getCardPaymentBreakdown({
   };
 }
 
-function groupSubtransactionsByCategory({
+type SubtransactionGroupWithCategory = {
+  category: string;
+  categoryTotalMillis: number;
+  subtransactions: SaveSubTransactionWithTargetLineData[];
+};
+
+function groupAndSortSubtransactionsByCategory({
   config,
   subtransactions,
   isRefund,
@@ -291,67 +300,122 @@ function groupSubtransactionsByCategory({
   isRefund: boolean;
   subtransactions: SaveSubTransactionWithTargetLineData[];
 }): SaveSubTransactionWithTargetLineData[] {
-  const categoryBuckets = subtransactions.reduce<
-    Record<string, SaveSubTransactionWithTargetLineData[]>
-  >((acc, currentValue) => {
-    const category =
-      currentValue._invoiceLineItemData.category ?? DEFAULT_PRODUCT_CATEGORY;
-    if (acc[category] == null) {
-      acc[category] = [];
-    }
-    acc[category]?.push(currentValue);
+  const categoryBucketsForSubtransactions: Record<
+    string,
+    SubtransactionGroupWithCategory
+  > = {};
 
-    return acc;
-  }, {});
+  const itemizedSubtransactions: Array<SubtransactionGroupWithCategory> = [];
+
+  // Group subtransactions, except if they should be itemized individually
+  subtransactions.forEach((currentSubtransaction) => {
+    const category =
+      currentSubtransaction._invoiceLineItemData.category ??
+      DEFAULT_PRODUCT_CATEGORY;
+
+    const shouldItemizeIndividually = getShouldItemizeIndividually(category);
+
+    if (shouldItemizeIndividually) {
+      itemizedSubtransactions.push({
+        category,
+        categoryTotalMillis: currentSubtransaction.amount,
+        subtransactions: [currentSubtransaction],
+      });
+      return;
+    }
+
+    const previousSubtransactionGroupWithCategory =
+      categoryBucketsForSubtransactions[category] ?? {
+        category,
+        categoryTotalMillis: 0,
+        subtransactions: [],
+      };
+
+    const newSubtransactionGroupWithCategory = {
+      category,
+      categoryTotalMillis:
+        previousSubtransactionGroupWithCategory.categoryTotalMillis +
+        currentSubtransaction.amount,
+      subtransactions:
+        previousSubtransactionGroupWithCategory.subtransactions.concat([
+          currentSubtransaction,
+        ]),
+    };
+
+    categoryBucketsForSubtransactions[category] =
+      newSubtransactionGroupWithCategory;
+
+    return;
+  });
+
+  const combinedSubtransactionGroups = itemizedSubtransactions.concat(
+    Object.values(categoryBucketsForSubtransactions),
+  );
+
+  const sortedCombinedSubtransactionGroups = combinedSubtransactionGroups
+    .slice()
+    .sort((a, b) => {
+      // Sort by category first, then by total amount from highest to lowest
+      const localeCompared = a.category.localeCompare(b.category);
+      if (localeCompared !== 0) {
+        return localeCompared;
+      }
+
+      // Sort by total amount in descending order
+      return isRefund
+        ? b.categoryTotalMillis - a.categoryTotalMillis
+        : a.categoryTotalMillis - b.categoryTotalMillis;
+    });
 
   const groupedSubtransactions: SaveSubTransactionWithTargetLineData[] =
-    Object.entries(categoryBuckets).map(
-      ([category, subtransactionsInCategory]) => {
-        const categoryTotalMillis = subtransactionsInCategory.reduce(
-          (acc, st) => acc + st.amount,
-          0,
-        );
+    sortedCombinedSubtransactionGroups.map((group) => {
+      const {
+        category,
+        subtransactions: subtransactionsInCategory,
+        categoryTotalMillis,
+      } = group;
 
-        const categoryLabelElement: LabelElement = {
-          flexShrink: 1,
-          onOverflow: 'truncate',
-          value: category,
-        };
+      const categoryToDisplay = getFormattedCategoryOrFallback(
+        category,
+        'emoji',
+      );
 
-        const combinedDescriptionLabelElements =
-          getCombinedDescriptionForInvoiceLineItems({
-            includePricesForGroupedItemsInMemo:
-              config.includePricesForGroupedItemsInMemo,
-            isRefund,
-            items: subtransactionsInCategory.map(
-              (st) => st._invoiceLineItemData,
-            ),
-            lineItemDescriptionMaxWordCount:
-              LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT,
-          });
+      const categoryLabelElement: LabelElement = {
+        flexShrink: 1,
+        onOverflow: 'truncate',
+        value: categoryToDisplay,
+      };
 
-        const memo = renderLabel(
-          [categoryLabelElement].concat(combinedDescriptionLabelElements),
-          YNAB_MAX_MEMO_LENGTH,
-        );
+      const combinedDescriptionLabelElements =
+        getCombinedDescriptionForInvoiceLineItems({
+          includePricesForGroupedItemsInMemo:
+            config.includePricesForGroupedItemsInMemo,
+          isRefund,
+          items: subtransactionsInCategory.map((st) => st._invoiceLineItemData),
+          lineItemDescriptionMaxWordCount: LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT,
+        });
 
-        return {
-          _invoiceLineItemData: {
-            amount: ynabUtils.convertMilliUnitsToCurrencyAmount(
-              categoryTotalMillis,
-              HARDCODED_CURRENCY_DECIMAL_DIGITS,
-            ),
-            category: category,
-            description: memo,
-            quantity: 1,
-            tcin: null,
-            type: 'groupedLineItems' as const,
-          },
-          amount: categoryTotalMillis,
-          memo: memo,
-        };
-      },
-    );
+      const memo = renderLabel(
+        [categoryLabelElement].concat(combinedDescriptionLabelElements),
+        YNAB_MAX_MEMO_LENGTH,
+      );
+
+      return {
+        _invoiceLineItemData: {
+          amount: ynabUtils.convertMilliUnitsToCurrencyAmount(
+            categoryTotalMillis,
+            HARDCODED_CURRENCY_DECIMAL_DIGITS,
+          ),
+          category: category,
+          description: memo,
+          quantity: 1,
+          tcin: null,
+          type: 'groupedLineItems' as const,
+        },
+        amount: categoryTotalMillis,
+        memo: memo,
+      };
+    });
 
   return groupedSubtransactions;
 }
@@ -397,15 +461,15 @@ function getSubtransactionsFromInvoiceDetail({
       const productCategoryBase =
         productCategoryMap[line.item.tcin] ?? DEFAULT_PRODUCT_CATEGORY;
 
-      const {value: categoryValue, isEmoji} =
-        getCategoryEmojiOrFallback(productCategoryBase);
+      // const {value: categoryValue, isEmoji} =
+      //   getCategoryEmojiOrFallback(productCategoryBase);
 
-      const categoryToUse = isEmoji ? categoryValue : `[${categoryValue}]`;
+      // const categoryToUse = isEmoji ? categoryValue : `[${categoryValue}]`;
 
       return {
         _invoiceLineItemData: {
           amount: -1 * line.effective_amount,
-          category: categoryToUse,
+          category: productCategoryBase,
           description: line.item.description ?? null,
           quantity: line.quantity,
           tcin: line.item.tcin,
@@ -413,25 +477,26 @@ function getSubtransactionsFromInvoiceDetail({
         },
         // Flip the sign since we're now considering this a debit on a bank account
         amount: -1 * convertUSDToMilliunits(line.effective_amount),
+        // TODO: ⭐ where is this memo actually used??
         memo: trimToYNABMaxMemoLength(
-          `${categoryToUse} ${newMemoNotTruncated}`,
+          `???WHERE_USED??? ${productCategoryBase} ${newMemoNotTruncated}`,
         ),
         // payee_name: 'Target',
       };
     });
 
-  const subTransactionsUnsorted = groupByProductCategory
-    ? groupSubtransactionsByCategory({
+  const subTransactions = groupByProductCategory
+    ? groupAndSortSubtransactionsByCategory({
         config,
         isRefund,
         subtransactions: subTransactionsUngrouped,
       })
     : subTransactionsUngrouped;
 
-  // Sort the most expensive items (aka lowest, since outflows are negative)
-  const subTransactions = subTransactionsUnsorted
-    .slice()
-    .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
+  // // Sort the most expensive items (aka lowest, since outflows are negative)
+  // const subTransactions = subTransactionsUnsorted
+  //   .slice()
+  //   .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
 
   otherPayments.forEach((p) => {
     if (p.total_charged === 0) {
