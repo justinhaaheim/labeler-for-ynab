@@ -183,11 +183,6 @@ function getCombinedDescriptionForInvoiceLineItems({
   items: InvoiceLineItemData[];
   lineItemDescriptionMaxWordCount: number | null;
 }): LabelElement[] {
-  console.log('🐿️ Items:', items);
-  console.log(
-    'includePricesForGroupedItemsInMemo:',
-    includePricesForGroupedItemsInMemo,
-  );
   const itemsSorted = items
     .slice()
     .sort((a, b) => (isRefund ? b.amount - a.amount : a.amount - b.amount));
@@ -667,10 +662,10 @@ export function getLabelsFromTargetOrderData(
           orderNumber,
         });
 
-        console.log(
-          `Invoice charges for order ${orderNumber}:`,
-          pairedInvoiceCharges,
-        );
+        // console.log(
+        //   `Invoice charges for order ${orderNumber}:`,
+        //   pairedInvoiceCharges,
+        // );
 
         const transactionsFromInvoiceData =
           invoiceAndOrderDataEntry.invoicesData.map(
@@ -710,10 +705,6 @@ export function getLabelsFromTargetOrderData(
                 ? LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT
                 : null;
 
-              // TODO: subTransactions ALREADY HAVE the prices embedded in the memo, so if we don't want any prices in the parent transaction memo we need to RE-GENERATE the subtransaction memos without prices
-              console.log(
-                '🚚 GETTING COMBINED DESCRIPTION FOR PARENT TRANSACTION',
-              );
               const memoLabelBase = getCombinedDescriptionForInvoiceLineItems({
                 // We don't want to include prices in the main transaction memo since they'll be visible in the subtransactions/subtransaction memos
                 includePricesForGroupedItemsInMemo: false,
@@ -723,8 +714,6 @@ export function getLabelsFromTargetOrderData(
                 ),
                 lineItemDescriptionMaxWordCount: maxWordCount,
               });
-
-              console.log('💫 Memo label base (no prices):', memoLabelBase);
 
               // This is the chargeObject of the invoice that's paired with this one
               const pairedInvoiceChargeObject = pairedInvoiceCharges.find(
