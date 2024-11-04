@@ -1,7 +1,12 @@
 import type {LabelElement} from './LabelElements';
 import type {LabelTransactionMatchFinalized} from './Matching';
-import type {API, SaveTransactionWithIdOrImportId} from 'ynab';
+import type {
+  API,
+  SaveTransactionWithIdOrImportId,
+  TransactionDetail,
+} from 'ynab';
 
+import nullthrows from 'nullthrows';
 import {v4 as uuidv4} from 'uuid';
 
 import isNonNullable from './isNonNullable';
@@ -15,12 +20,14 @@ export const UPDATE_TYPE_PRETTY_STRING = {
 
 export type UpdateType = keyof typeof UPDATE_TYPE_PRETTY_STRING;
 
-export const CURRENT_UPDATE_LOG_VERSION = 1 as const;
+export const CURRENT_UPDATE_LOG_VERSION = 2 as const;
 
 export type UpdateLogChunkV1 = {
   _updateLogVersion: typeof CURRENT_UPDATE_LOG_VERSION;
+
   // NOTE: accountID isn't used when making transaction updates, so it's inclusion here is just for informational/debugging purposes
   accountID: string;
+
   budgetID: string;
   logs: UpdateLogEntryV1[];
   revertSourceInfo?: {
@@ -32,20 +39,29 @@ export type UpdateLogChunkV1 = {
   updateID: string;
 };
 
+export type UpdateMethod = 'delete-and-recreate' | 'update';
+
 export type UpdateLogEntryV1 = {
-  id: string;
-
-  label: LabelElement[];
-
-  method: 'append-label' | 'remove-label';
-  newMemo: string;
-  newSubtransactions?: SaveTransactionWithIdOrImportId['subtransactions'];
-  previousMemo: string | undefined;
-  previousSubtransactions?: SaveTransactionWithIdOrImportId['subtransactions'];
+  error?: Error;
+  label: LabelElement[] | null;
+  newTransactionDetail: TransactionDetail | null;
+  previousTransactionDetail: TransactionDetail;
+  transactionID: string;
+  transactionUpdatesApplied: SaveTransactionWithIdOrImportId | null;
+  updateMethod: UpdateMethod;
   updateSucceeded: boolean;
 };
 
-type UpdateLogEntryInProgressV1 = Omit<UpdateLogEntryV1, 'updateSucceeded'>;
+// const a = {} as TransactionDetail;
+// const b: NewTransaction = a;
+
+// https://stackoverflow.com/a/54178819/18265617
+type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+type UpdateLogEntryInProgressV1 = PartialBy<
+  UpdateLogEntryV1,
+  'newTransactionDetail' | 'updateSucceeded'
+>;
 
 type SyncConfig = {
   accountID: string;
@@ -61,6 +77,52 @@ type UndoConfig = {
 
 export function trimToYNABMaxMemoLength(memo: string): string {
   return memo.slice(0, YNAB_MAX_MEMO_LENGTH);
+}
+
+type ExecuteTransactionUpdatesProps = {
+  budgetID: string;
+  saveTransactionsToExecute: SaveTransactionWithIdOrImportId[];
+  updateLogsInProgress: UpdateLogEntryInProgressV1[];
+  ynabAPI: API;
+};
+
+async function executeTransactionUpdatesAndUpdateUpdateLogs({
+  ynabAPI,
+  budgetID,
+  saveTransactionsToExecute,
+  updateLogsInProgress,
+}: ExecuteTransactionUpdatesProps): Promise<UpdateLogEntryV1[]> {
+  const saveTransactionResponse = await ynabAPI.transactions.updateTransactions(
+    budgetID,
+    {
+      transactions: saveTransactionsToExecute,
+    },
+  );
+
+  console.debug('saveTransactionResponse', saveTransactionResponse);
+
+  const newTransactionDetailLookup =
+    saveTransactionResponse.data.transactions?.reduce<
+      Record<string, TransactionDetail>
+    >((acc, currentValue) => {
+      acc[currentValue.id] = currentValue;
+      return acc;
+    }, {}) ?? {};
+
+  // Theoretically this should be the same as Object.keys(newTransactionDetailLookup) (except this is a set, not an array)
+  const successfulTransactionsSet = new Set(
+    saveTransactionResponse.data.transaction_ids,
+  );
+
+  const updateLogsFinalized: UpdateLogEntryV1[] = updateLogsInProgress.map(
+    (log) => ({
+      ...log,
+      newTransactionDetail:
+        newTransactionDetailLookup[log.transactionID] ?? null,
+      updateSucceeded: successfulTransactionsSet.has(log.transactionID),
+    }),
+  );
+  return updateLogsFinalized;
 }
 
 export async function syncLabelsToYnab({
@@ -97,48 +159,36 @@ export async function syncLabelsToYnab({
         //   newMemoLength: newMemo.length,
         // });
 
-        updateLogs.push({
-          id: ynabTransactionToUpdate.id,
-          label: match.label.memo,
-          method: 'append-label',
-          newMemo: newMemo,
-
-          newSubtransactions: match.label.subTransactions,
-          // Use the exact previous memo here (whether it's whitespace, undefined, null, etc)
-          previousMemo: ynabTransactionToUpdate.memo,
-          previousSubtransactions: ynabTransactionToUpdate.subtransactions,
-        });
-
-        return {
+        const newTransactionUpdatesToApply = {
           id: ynabTransactionToUpdate.id,
           memo: newMemo,
           subtransactions: match.label.subTransactions,
         };
+
+        updateLogs.push({
+          label: match.label.memo,
+          previousTransactionDetail: ynabTransactionToUpdate,
+          transactionID: ynabTransactionToUpdate.id,
+          transactionUpdatesApplied: newTransactionUpdatesToApply,
+          updateMethod: 'update',
+        });
+
+        return newTransactionUpdatesToApply;
       })
       .filter(isNonNullable);
 
   console.debug('saveTransactionsToExecute', saveTransactionsToExecute);
-  console.debug('updateLogs', updateLogs);
+  console.debug('updateLogs (in progress)', updateLogs);
 
   // console.log('No update made.');
 
-  const saveTransactionResponse = await ynabAPI.transactions.updateTransactions(
-    budgetID,
-    {
-      transactions: saveTransactionsToExecute,
-    },
-  );
-
-  const successfulTransactionsSet = new Set(
-    saveTransactionResponse.data.transaction_ids,
-  );
-
-  const updateLogsFinalized: UpdateLogEntryV1[] = updateLogs.map((log) => ({
-    ...log,
-    updateSucceeded: successfulTransactionsSet.has(log.id),
-  }));
-
-  console.debug('saveTransactionResponse', saveTransactionResponse);
+  const updateLogsFinalized: UpdateLogEntryV1[] =
+    await executeTransactionUpdatesAndUpdateUpdateLogs({
+      budgetID,
+      saveTransactionsToExecute,
+      updateLogsInProgress: updateLogs,
+      ynabAPI,
+    });
 
   return {
     _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
@@ -161,55 +211,110 @@ export async function undoSyncLabelsToYnab({
 
   let undoUpdateLogs: UpdateLogEntryInProgressV1[] = [];
 
-  const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] =
-    updateLogChunk.logs.map((log) => {
-      undoUpdateLogs.push({
-        id: log.id,
-        label: log.label,
-        method: 'remove-label',
-        newMemo: log.previousMemo ?? '',
-        newSubtransactions: log.previousSubtransactions,
-        previousMemo: log.newMemo,
-        previousSubtransactions: log.newSubtransactions,
-      });
+  const saveTransactionsToExecute: SaveTransactionWithIdOrImportId[] = [];
 
-      // TODO: See if there's a way to delete subtransactions if they weren't previously there.
+  await Promise.all(
+    updateLogChunk.logs.map(async (log) => {
+      if (!log.updateSucceeded) {
+        console.debug(
+          `[undoSyncLabelsToYnab] log.updateSucceeded was false. This means there's nothing to undo.`,
+          log,
+        );
+        return;
+      }
 
-      return {
-        id: log.id,
-        /**
-         * NOTE: there are a lot of ways we could do this, and probably the safest is to search the
-         * current memo for the appended string and remove it if it's present or leave it if it's
-         * not (ie the user manually edited the memo in the meantime)
-         */
-        memo: log.previousMemo,
-        subtransactions: log.previousSubtransactions,
-      };
-    });
+      if (log.newTransactionDetail == null) {
+        console.warn(
+          '[undoSyncLabelsToYnab] log.newTransactionDetail was null. This should not happen.',
+          log,
+        );
+        return;
+      }
+
+      if (
+        log.transactionUpdatesApplied != null &&
+        log.transactionUpdatesApplied.subtransactions == null
+      ) {
+        const newTransactionUpdatesToApply = {
+          id: log.transactionID,
+          /**
+           * NOTE: there are a lot of ways we could do this, and probably the safest is to search the
+           * current memo for the appended string and remove it if it's present or leave it if it's
+           * not (ie the user manually edited the memo in the meantime)
+           */
+          memo: log.previousTransactionDetail.memo,
+        };
+        saveTransactionsToExecute.push(newTransactionUpdatesToApply);
+
+        undoUpdateLogs.push({
+          label: log.label,
+          previousTransactionDetail: log.newTransactionDetail,
+          transactionID: log.transactionID,
+          transactionUpdatesApplied: newTransactionUpdatesToApply,
+          updateMethod: 'update',
+        });
+        return;
+      }
+
+      /**
+       * If there are subtransactions, we need to delete the transaction and then recreate it with the previous subtransactions
+       */
+      try {
+        console.log(
+          'Attempting to undo sync by deleting and then reconstituting transaction...',
+          log,
+        );
+        const deleteTransactionResponse =
+          await ynabAPI.transactions.deleteTransaction(
+            budgetID,
+            log.transactionID,
+          );
+        const createTransactionResponse =
+          await ynabAPI.transactions.createTransaction(budgetID, {
+            transaction: {
+              ...log.previousTransactionDetail,
+            },
+          });
+        undoUpdateLogs.push({
+          label: log.label,
+          newTransactionDetail: createTransactionResponse.data.transaction,
+          previousTransactionDetail: deleteTransactionResponse.data.transaction,
+          transactionID: nullthrows(
+            createTransactionResponse.data.transaction?.id,
+          ),
+          transactionUpdatesApplied: null,
+          updateMethod: 'delete-and-recreate',
+          updateSucceeded: true,
+        });
+      } catch (e) {
+        console.error('Failed to delete or recreate transaction', e);
+
+        undoUpdateLogs.push({
+          error: e as Error,
+          label: log.label,
+          previousTransactionDetail: log.newTransactionDetail,
+          transactionID: log.transactionID,
+          transactionUpdatesApplied: null,
+          updateMethod: 'delete-and-recreate',
+          updateSucceeded: false,
+        });
+        return;
+      }
+    }),
+  );
 
   console.debug(
     '[undoSyncLabelsToYnab] saveTransactionsToExecute',
     saveTransactionsToExecute,
   );
 
-  const saveTransactionResponse = await ynabAPI.transactions.updateTransactions(
-    budgetID,
-    {transactions: saveTransactionsToExecute},
-  );
-
-  const successfulTransactionsSet = new Set(
-    saveTransactionResponse.data.transaction_ids,
-  );
-
-  const undoUpdateLogsFinalized = undoUpdateLogs.map((log) => ({
-    ...log,
-    updateSucceeded: successfulTransactionsSet.has(log.id),
-  }));
-
-  console.debug(
-    '[undoSyncLabelsToYnab] saveTransactionResponse',
-    saveTransactionResponse,
-  );
+  const undoUpdateLogsFinalized: UpdateLogEntryV1[] =
+    await executeTransactionUpdatesAndUpdateUpdateLogs({
+      budgetID,
+      saveTransactionsToExecute,
+      updateLogsInProgress: undoUpdateLogs,
+      ynabAPI,
+    });
 
   return {
     _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
