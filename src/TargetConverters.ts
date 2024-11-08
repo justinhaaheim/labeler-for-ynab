@@ -721,7 +721,7 @@ export function getLabelsFromTargetOrderData(
                     onOverflow: 'truncate',
                     value: `(Fully refunded on ${getDateString(
                       pairedInvoiceChargeObject.date,
-                    )})`,
+                    )} #RefundPair)`,
                   });
                 } else {
                   // The paired invoice is a charge
@@ -730,7 +730,7 @@ export function getLabelsFromTargetOrderData(
                     onOverflow: 'truncate',
                     value: `(Full refund of ${getDateString(
                       pairedInvoiceChargeObject.date,
-                    )})`,
+                    )} #RefundPair)`,
                   });
                 }
               }
