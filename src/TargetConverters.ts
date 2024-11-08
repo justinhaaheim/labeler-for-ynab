@@ -4,8 +4,8 @@ import type {
   CombinedOutputData,
   InvoiceDetail,
   PaymentDetail,
-  TargetAPIOrderAggregationsData,
 } from './TargetAPITypes';
+import type {ProductCategoryLookupFunction} from './TargetCategories';
 
 import {type SaveSubTransaction, utils as ynabUtils} from 'ynab';
 
@@ -25,8 +25,8 @@ import {
 } from './LabelElements';
 import {trimToYNABMaxMemoLength, YNAB_MAX_MEMO_LENGTH} from './Sync';
 import {
-  getFormattedCategoryOrFallback,
-  getShouldItemizeIndividually,
+  DEFAULT_PRODUCT_CATEGORY,
+  getProductCategoryLookupFunction,
 } from './TargetCategories';
 import {htmlEntityDecode} from './Utils';
 
@@ -47,13 +47,8 @@ export type TargetConverterOptionsConfig = ConverterOptionsConfig & {
   includePricesForGroupedItemsInMemo: boolean;
 };
 
-export type ProductCategoryMap = {[tcin: string]: string};
-
-const PRODUCT_CATEGORY_MAP_HARDCODED_ITEMS: ProductCategoryMap = {
-  '47750281': 'Bag Fee',
-};
-
 type InvoiceLineItemData = {
+  alwaysItemizeIndividually: boolean;
   amount: number;
   category: string | null;
   description: string | null;
@@ -69,7 +64,6 @@ type SaveSubTransactionWithTargetLineData = SaveSubTransaction & {
 const SINGLE_SPACE = ' ';
 const NO_DESCRIPTION_TEXT = '(no description)';
 const NO_LINE_ITEMS_TEXT = '(no line items)';
-const DEFAULT_PRODUCT_CATEGORY = 'Unknown Category';
 const LINE_ITEM_DESCRIPTION_MAX_WORD_COUNT = 3;
 
 // TODO: Change this back to commas, and create a way to have the comma immediately follow the text before it, but leave a space afterwards
@@ -79,29 +73,6 @@ const separatorLabelElement: LabelElement = {
   onOverflow: ON_TRUNCATE_TYPES.omit,
   value: '|',
 };
-
-function createProductCategoryMap(
-  orderAggregationsData: TargetAPIOrderAggregationsData,
-): ProductCategoryMap {
-  const map =
-    orderAggregationsData?.['order_lines'].reduce<Record<string, string>>(
-      (acc, currentValue) => {
-        const productTypeName =
-          currentValue.item.product_classification?.product_type_name ?? null;
-
-        // Note: we were previously putting this in title case: // ? titleCase(productTypeName.toLowerCase())
-        const cat =
-          productTypeName != null ? productTypeName : DEFAULT_PRODUCT_CATEGORY;
-        // console.log(`Product type name: ${productTypeName} | Category: ${cat}`);
-
-        acc[currentValue.item.tcin] = cat;
-        return acc;
-      },
-      {},
-    ) ?? {};
-
-  return {...PRODUCT_CATEGORY_MAP_HARDCODED_ITEMS, ...map};
-}
 
 type PairedInvoiceCharge = {
   date: Date;
@@ -282,7 +253,11 @@ function getCardPaymentBreakdown({
 }
 
 type SubtransactionGroupWithCategory = {
-  category: string;
+  alwaysItemizeIndividually: boolean;
+
+  // categoryString is the actual string representation we are using for display and sorting
+  categoryString: string;
+
   categoryTotalMillis: number;
   subtransactions: SaveSubTransactionWithTargetLineData[];
 };
@@ -303,19 +278,39 @@ function groupAndSortSubtransactionsByCategory({
 
   // Group subtransactions by category
   subtransactions.forEach((currentSubtransaction) => {
-    const category =
+    const categoryString =
       currentSubtransaction._invoiceLineItemData.category ??
       DEFAULT_PRODUCT_CATEGORY;
 
+    const alwaysItemizeIndividually =
+      currentSubtransaction._invoiceLineItemData.alwaysItemizeIndividually;
+
     const previousSubtransactionGroupWithCategory =
-      categoryBucketsForSubtransactions[category] ?? {
-        category,
+      categoryBucketsForSubtransactions[categoryString] ?? {
+        alwaysItemizeIndividually,
+        categoryString: categoryString,
         categoryTotalMillis: 0,
         subtransactions: [],
       };
 
+    // Sanity check
+    if (
+      previousSubtransactionGroupWithCategory.alwaysItemizeIndividually !==
+      alwaysItemizeIndividually
+    ) {
+      console.warn(
+        `[groupAndSortSubtransactionsByCategory] Found a mix of alwaysItemizeIndividually values for category ${categoryString}. Using the first one found.`,
+        {
+          alwaysItemizeIndividually,
+          previousSubtransactionGroupWithCategory,
+        },
+      );
+    }
+
     const newSubtransactionGroupWithCategory = {
-      category,
+      alwaysItemizeIndividually:
+        previousSubtransactionGroupWithCategory.alwaysItemizeIndividually,
+      categoryString,
       categoryTotalMillis:
         previousSubtransactionGroupWithCategory.categoryTotalMillis +
         currentSubtransaction.amount,
@@ -325,7 +320,7 @@ function groupAndSortSubtransactionsByCategory({
         ]),
     };
 
-    categoryBucketsForSubtransactions[category] =
+    categoryBucketsForSubtransactions[categoryString] =
       newSubtransactionGroupWithCategory;
 
     return;
@@ -392,9 +387,10 @@ function groupAndSortSubtransactionsByCategory({
   const finalizedSortedSubtransactionGroups: Array<SubtransactionGroupWithCategory> =
     sortedSubtransactionGroups
       .map((g) => {
-        if (getShouldItemizeIndividually(g.category)) {
+        if (g.alwaysItemizeIndividually) {
           return g.subtransactions.map((st) => ({
-            category: g.category,
+            alwaysItemizeIndividually: g.alwaysItemizeIndividually,
+            categoryString: g.categoryString,
             categoryTotalMillis: st.amount,
             subtransactions: [st],
           }));
@@ -411,20 +407,15 @@ function groupAndSortSubtransactionsByCategory({
   const groupedSubtransactions: SaveSubTransactionWithTargetLineData[] =
     finalizedSortedSubtransactionGroups.map((group) => {
       const {
-        category,
+        categoryString,
         subtransactions: subtransactionsInCategory,
         categoryTotalMillis,
       } = group;
 
-      const categoryToDisplay = getFormattedCategoryOrFallback(
-        category,
-        'emoji',
-      );
-
       const categoryLabelElement: LabelElement = {
         flexShrink: 1,
         onOverflow: 'truncate',
-        value: categoryToDisplay,
+        value: categoryString,
       };
 
       const combinedDescriptionLabelElements =
@@ -443,11 +434,12 @@ function groupAndSortSubtransactionsByCategory({
 
       return {
         _invoiceLineItemData: {
+          alwaysItemizeIndividually: false,
           amount: ynabUtils.convertMilliUnitsToCurrencyAmount(
             categoryTotalMillis,
             HARDCODED_CURRENCY_DECIMAL_DIGITS,
           ),
-          category: category,
+          category: categoryString,
           description: memo,
           quantity: 1,
           tcin: null,
@@ -463,7 +455,7 @@ function groupAndSortSubtransactionsByCategory({
 
 function getSubtransactionsFromInvoiceDetail({
   invoiceDetail,
-  productCategoryMap,
+  productCategoryLookupFunction,
   otherPayments,
   totalChargedToCard,
   config,
@@ -473,7 +465,7 @@ function getSubtransactionsFromInvoiceDetail({
   invoiceDetail: InvoiceDetail;
   isRefund: boolean;
   otherPayments: PaymentDetail[];
-  productCategoryMap: ProductCategoryMap;
+  productCategoryLookupFunction: ProductCategoryLookupFunction;
   totalChargedToCard: number;
 }): SaveSubTransactionWithTargetLineData[] | null {
   const {groupByProductCategory} = config;
@@ -504,18 +496,14 @@ function getSubtransactionsFromInvoiceDetail({
         (line.shipped_quantity > 1 ? `${line.shipped_quantity}x ` : '') +
         (description ?? '(no item description)');
 
-      const productCategoryBase =
-        productCategoryMap[line.item.tcin] ?? DEFAULT_PRODUCT_CATEGORY;
-
-      // const {value: categoryValue, isEmoji} =
-      //   getCategoryEmojiOrFallback(productCategoryBase);
-
-      // const categoryToUse = isEmoji ? categoryValue : `[${categoryValue}]`;
+      const {category, alwaysItemizeIndividually} =
+        productCategoryLookupFunction(line.item.tcin);
 
       return {
         _invoiceLineItemData: {
+          alwaysItemizeIndividually,
           amount: -1 * line.effective_amount,
-          category: productCategoryBase,
+          category: category,
           description: description,
           quantity: line.shipped_quantity,
           tcin: line.item.tcin,
@@ -525,7 +513,7 @@ function getSubtransactionsFromInvoiceDetail({
         amount: -1 * convertUSDToMilliunits(line.effective_amount),
         // TODO: ⭐ where is this memo actually used??
         memo: trimToYNABMaxMemoLength(
-          `???WHERE_USED??? ${productCategoryBase} ${newMemoNotTruncated}`,
+          `???WHERE_USED??? ${category} ${newMemoNotTruncated}`,
         ),
         // payee_name: 'Target',
       };
@@ -559,6 +547,7 @@ function getSubtransactionsFromInvoiceDetail({
 
     subTransactions.push({
       _invoiceLineItemData: {
+        alwaysItemizeIndividually: true,
         amount: p.total_charged,
         category: null,
         description: description,
@@ -616,6 +605,7 @@ function getSubtransactionsFromInvoiceDetail({
 
     subTransactions.push({
       _invoiceLineItemData: {
+        alwaysItemizeIndividually: true,
         amount: ynabUtils.convertMilliUnitsToCurrencyAmount(
           subTransactionDiscrepancyFromTotal,
         ),
@@ -652,7 +642,7 @@ export function getLabelsFromTargetOrderData(
     data.invoiceAndOrderData.flatMap(
       (invoiceAndOrderDataEntry, _invoiceAndOrderDataIndex) => {
         const {_orderNumber: orderNumber} = invoiceAndOrderDataEntry;
-        const productCategoryMap = createProductCategoryMap(
+        const productCategoryLookupFunction = getProductCategoryLookupFunction(
           invoiceAndOrderDataEntry.orderAggregationsData,
         );
 
@@ -693,7 +683,7 @@ export function getLabelsFromTargetOrderData(
                 invoiceDetail,
                 isRefund,
                 otherPayments,
-                productCategoryMap,
+                productCategoryLookupFunction,
                 totalChargedToCard,
               });
 
