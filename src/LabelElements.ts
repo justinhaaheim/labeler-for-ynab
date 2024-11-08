@@ -47,7 +47,8 @@ type RenderLabelElementsConfig = {
   mode: 'handle-overflow' | 'shrink';
 };
 
-export const SEPARATOR_BEFORE_LABEL = '@@';
+export const SEPARATOR_BEFORE_LABEL = '✳️';
+const LABEL_SEPARATORS_INCLUDING_HISTORICAL = [SEPARATOR_BEFORE_LABEL, '@@'];
 
 export const ELLIPSIS = '…';
 
@@ -87,7 +88,9 @@ function truncateString(s: string, charsToReduce: number): string {
 
 export function isSuspectedAlreadyLabeled(memo: string): boolean {
   // The separator should always have a space after it, so this helps us avoid false positives where @@ might be in some random string
-  return memo.includes(`${SEPARATOR_BEFORE_LABEL} `);
+  return LABEL_SEPARATORS_INCLUDING_HISTORICAL.some((s) =>
+    memo.includes(`${s} `),
+  );
 }
 
 function renderLabelNoLimit(elements: LabelElement[]): string {
