@@ -4,6 +4,7 @@ import type {
 } from './TargetAPITypes';
 
 import nullthrows from 'nullthrows';
+import {titleCase} from 'title-case';
 
 type CategoryConfigResolved = {
   alwaysItemizeIndividually: boolean;
@@ -41,12 +42,6 @@ type CategoryConfigWithChildren = CategoryConfig & {
 };
 
 type CategoryMap = Record<string, CategoryConfigWithChildren>;
-
-const FALLBACK_CATEGORY_CONFIG: CategoryConfig = {
-  emoji: '❓',
-  prettyName: 'Unknown Category',
-  shortPrettyName: 'Unknown',
-};
 
 // TODO: Figure out how YNAB counts emojis in terms of character count to make sure that a big sync doesn't fail
 const TARGET_CATEGORY_CONFIG_MAP: CategoryMap = {
@@ -193,8 +188,7 @@ function getProductCategoryConfigFromMap(
   const subTypeName = classificationObject?.product_subtype_name ?? null;
   const merchTypeName = classificationObject?.merchandise_type_name ?? null;
 
-  let currentCategoryConfig: CategoryConfigWithChildren =
-    FALLBACK_CATEGORY_CONFIG;
+  let currentCategoryConfig: CategoryConfigWithChildren | null = null;
 
   if (typeName != null && TARGET_CATEGORY_CONFIG_MAP[typeName] != null) {
     currentCategoryConfig = nullthrows(TARGET_CATEGORY_CONFIG_MAP[typeName]);
@@ -216,6 +210,20 @@ function getProductCategoryConfigFromMap(
         );
       }
     }
+  }
+
+  if (currentCategoryConfig == null) {
+    // If we encounter a category that's not in our map let's just use the category name, title-cased, wrapped in brackets
+    const unexpectedCategory = classificationObject?.product_type_name;
+
+    return {
+      alwaysItemizeIndividually: false,
+      category: `[${
+        unexpectedCategory != null
+          ? titleCase(unexpectedCategory.toLowerCase())
+          : DEFAULT_PRODUCT_CATEGORY
+      }]`,
+    };
   }
 
   return {
