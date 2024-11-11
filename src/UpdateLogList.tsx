@@ -82,7 +82,10 @@ export default function UpdateLogList({
                 </Typography>
               </ListItemContent>
               <ListItemDecorator>
-                <Button disabled={ynabApi == null} onClick={onClick} size="sm">
+                <Button
+                  disabled={ynabApi == null || i < updateChunks.length - 1}
+                  onClick={onClick}
+                  size="sm">
                   Undo
                 </Button>
               </ListItemDecorator>
