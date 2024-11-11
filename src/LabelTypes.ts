@@ -1,4 +1,5 @@
 import type {LabelElement} from './LabelElements';
+import type * as ynab from 'ynab';
 
 // TODO: Support other names in other locales?
 export const AMAZON_PAYEE_NAME = 'Amazon';
@@ -42,6 +43,16 @@ export interface StandardTransactionType {
   memo: string;
   payee: string;
 }
+
+export interface StandardTransactionTypeWithSubtransactions {
+  amount: number;
+  date: string;
+  id: string;
+  memo: string;
+  payee: string;
+  subTransactions?: ynab.SaveSubTransaction[];
+}
+
 // TODO NEXT: Write a converter between StandardTransactionTypeWithLabelElements and StandardTransactionType so that we can easily render the non-finalized matches into a table
 export interface StandardTransactionTypeWithLabelElements {
   amount: number;
@@ -50,6 +61,7 @@ export interface StandardTransactionTypeWithLabelElements {
   memo: LabelElement[];
   metaData?: LabelMetaData;
   payee: string;
+  subTransactions?: ynab.SaveSubTransaction[];
 }
 
 export interface AmazonTransactionType

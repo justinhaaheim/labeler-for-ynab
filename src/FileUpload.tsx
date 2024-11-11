@@ -69,11 +69,11 @@ export default function FileUpload({
             : PRETTY_NAME_LOOKUP[importType]
         } format detected`}</Typography>
         <Typography level="body-xs">
-          {importRowsCount ?? 0} csv rows parsed
+          {importRowsCount ?? 0} entries parsed
         </Typography>
         {duplicateRowsRemoved != null && duplicateRowsRemoved > 0 && (
           <Typography level="body-xs">
-            {`${duplicateRowsRemoved} duplicate csv rows ignored`}
+            {`${duplicateRowsRemoved} duplicate entries ignored`}
           </Typography>
         )}
         <Typography level="body-xs">

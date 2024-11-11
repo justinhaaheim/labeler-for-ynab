@@ -1,11 +1,11 @@
 {
   "name": "ynab-labeler",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "npm": ">=9",
-    "node": "20.x"
+    "node": ">=20"
   },
   "scripts": {
     "build": "tsc && vite build",
@@ -35,11 +35,14 @@
     "@mui/material": "5.15.21",
     "dayjs": "1.11.11",
     "lodash": "4.17.21",
+    "nullthrows": "1.1.1",
     "papaparse": "^5.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "title-case": "4.3.1",
     "uuid": "^10.0.0",
-    "ynab": "2.3.0"
+    "ynab": "2.3.0",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@types/jest": "29.5.12",

@@ -4,7 +4,7 @@ import Sheet from '@mui/joy/Sheet';
 import Table from '@mui/joy/Table';
 import {useState} from 'react';
 
-import getFormattedAmount from './getFormattedAmount';
+import {getFormattedAmount} from './Currency';
 
 type Props = {
   size?: 'lg' | 'md' | 'sm';

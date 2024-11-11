@@ -6,8 +6,9 @@ import {
   YNAB_CSV_IMPORT_KEYS,
   type YnabCsvTransactionType,
 } from './LabelTypes';
+import {type CombinedOutputData, CombinedOutputDataZod} from './TargetAPITypes';
 
-export const PARSED_LABEL_FORMAT_TYPES = ['amazon', 'ynab'] as const;
+export const PARSED_LABEL_FORMAT_TYPES = ['amazon', 'ynab', 'target'] as const;
 export type ParsedLabelFormatTypes = (typeof PARSED_LABEL_FORMAT_TYPES)[number];
 
 type ParsedLabelsStats = {
@@ -22,6 +23,11 @@ export type ParsedLabelsTyped =
       stats: ParsedLabelsStats;
     }
   | {
+      _type: 'target';
+      labels: CombinedOutputData;
+      stats: ParsedLabelsStats;
+    }
+  | {
       _type: 'ynab';
       labels: YnabCsvTransactionType[];
       stats: ParsedLabelsStats;
@@ -31,6 +37,7 @@ export const PRETTY_NAME_LOOKUP: {
   [key in ParsedLabelFormatTypes]: string;
 } = {
   amazon: 'Amazon',
+  target: 'Target',
   ynab: 'YNAB',
 };
 
@@ -84,6 +91,26 @@ export function isValidYnabCsvImport(
       Object.prototype.hasOwnProperty.call(parseResult.data[0], key),
     )
   );
+}
+
+export function getParsedLabelsFromFile(fileText: string): ParsedLabelsTyped {
+  try {
+    const jsonOutput = JSON.parse(fileText);
+    const targetOutputData = CombinedOutputDataZod.parse(jsonOutput);
+
+    return {
+      _type: 'target',
+      labels: targetOutputData,
+      stats: {
+        duplicateRowsRemoved: 0,
+        rowsParsed: targetOutputData.invoiceAndOrderData.length,
+      },
+    };
+  } catch (e) {
+    console.log('JSON.parse threw an error. Attempting to parse as csv...', e);
+  }
+
+  return getParsedLabelsFromCsv(fileText);
 }
 
 export function getParsedLabelsFromCsv(csvText: string): ParsedLabelsTyped {

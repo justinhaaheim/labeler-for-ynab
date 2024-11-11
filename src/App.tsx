@@ -1,4 +1,4 @@
-import type {AmazonOptionsConfig} from './Converters';
+import type {ConverterOptionsConfig} from './Converters';
 import type {ParsedLabelsTyped} from './LabelParser';
 import type {StandardTransactionTypeWithLabelElements} from './LabelTypes';
 import type {
@@ -69,7 +69,8 @@ import {
   getMatchCandidatesForAllLabels,
   resolveBestMatchForLabels,
 } from './Matching';
-import {MAXIMUM_YNAB_MEMO_LENGTH, syncLabelsToYnab} from './Sync';
+import NewTransactionDataGrid from './NewTransactionDataGrid';
+import {syncLabelsToYnab, YNAB_MAX_MEMO_LENGTH} from './Sync';
 import TransactionDataGrid from './TransactionDataGrid';
 import UpdateLogList from './UpdateLogList';
 import {downloadAllBudgetData} from './YNABExport';
@@ -166,7 +167,7 @@ function App() {
     ynab.TransactionDetail[] | null
   >(null);
 
-  const [amazonConfig, setAmazonConfig] = useState<AmazonOptionsConfig>({
+  const [amazonConfig, setAmazonConfig] = useState<ConverterOptionsConfig>({
     includeLinks: true,
     linkType: 'plain',
     shortenLinks: true,
@@ -201,7 +202,7 @@ function App() {
   const [updateLogsList, setUpdateLogsList] = useState<UpdateLogChunkV1[]>([]);
 
   const [showAllLabelsAndTransactions, setShowAllLabelsAndTransactions] =
-    useState<boolean>(false);
+    useState<boolean>(getIsDevMode());
 
   const matchCandidates = useMemo<MatchCandidate[] | null>(() => {
     if (labelsWithLabelElements == null || transactions == null) {
@@ -639,7 +640,7 @@ function App() {
                                         setAmazonConfig((prev) => ({
                                           ...prev,
                                           linkType: event.target
-                                            .value as AmazonOptionsConfig['linkType'],
+                                            .value as ConverterOptionsConfig['linkType'],
                                         }));
                                       }}
                                       value={amazonConfig.linkType}>
@@ -1027,12 +1028,12 @@ function App() {
                         } labels loaded`}</Typography>
 
                         {labelsWithLabelElements != null && (
-                          <TransactionDataGrid
+                          <NewTransactionDataGrid
                             size="sm"
                             transactions={labelsWithLabelElements.map((l) =>
                               renderStandardTransactionFromLabelElements(
                                 l,
-                                MAXIMUM_YNAB_MEMO_LENGTH,
+                                YNAB_MAX_MEMO_LENGTH,
                               ),
                             )}
                           />

@@ -8,7 +8,7 @@ import type {
 } from './Matching';
 
 import repeatString from './repeatString';
-import {MAXIMUM_YNAB_MEMO_LENGTH} from './Sync';
+import {YNAB_MAX_MEMO_LENGTH} from './Sync';
 
 /**
  * TODO: Handle what happens if two spaces are next to each other after
@@ -47,7 +47,8 @@ type RenderLabelElementsConfig = {
   mode: 'handle-overflow' | 'shrink';
 };
 
-export const SEPARATOR_BEFORE_LABEL = '@@';
+export const SEPARATOR_BEFORE_LABEL = '✳️';
+const LABEL_SEPARATORS_INCLUDING_HISTORICAL = [SEPARATOR_BEFORE_LABEL, '@@'];
 
 export const ELLIPSIS = '…';
 
@@ -87,7 +88,9 @@ function truncateString(s: string, charsToReduce: number): string {
 
 export function isSuspectedAlreadyLabeled(memo: string): boolean {
   // The separator should always have a space after it, so this helps us avoid false positives where @@ might be in some random string
-  return memo.includes(`${SEPARATOR_BEFORE_LABEL} `);
+  return LABEL_SEPARATORS_INCLUDING_HISTORICAL.some((s) =>
+    memo.includes(`${s} `),
+  );
 }
 
 function renderLabelNoLimit(elements: LabelElement[]): string {
@@ -300,7 +303,7 @@ export function renderFinalizedMatches({
 
     const transactionMemo = match.transactionMatch?.memo ?? '';
     const charsRemainingForLabel =
-      MAXIMUM_YNAB_MEMO_LENGTH - transactionMemo.length;
+      YNAB_MAX_MEMO_LENGTH - transactionMemo.length;
     const labelFullLength = renderLabelNoLimit(match.label.memo).length;
 
     if (
@@ -338,7 +341,7 @@ export function renderFinalizedMatches({
         ...match.label.memo,
       ],
       // TODO: Maybe take this in as a function arg rather than assuming 200 here
-      MAXIMUM_YNAB_MEMO_LENGTH,
+      YNAB_MAX_MEMO_LENGTH,
     );
     return {...match, newMemo, warnings: newWarnings};
   });

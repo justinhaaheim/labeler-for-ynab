@@ -14,6 +14,16 @@ const CURRENCY_SYMBOL =
     ?.formatToParts(1)
     ?.find((x) => x.type === 'currency')?.value ?? CURRENCY_SYMBOL_FALLBACK;
 
+// TODO: Don't hardcode this. Use the currency from the budget
+const USDFormat = Intl.NumberFormat(undefined, {
+  currency: HARDCODED_CURRENCY,
+  style: 'currency',
+});
+
+export function getFormattedAmount(amount: number): string {
+  return USDFormat.format(Object.is(amount, -0) ? 0 : amount);
+}
+
 /**
  * Parse a localized number to a float.
  * From: https://stackoverflow.com/a/29273131/18265617
@@ -59,4 +69,23 @@ export function areEqualWithPrecision(
   digits: number,
 ): boolean {
   return n1.toFixed(digits) === n2.toFixed(digits);
+}
+
+export function convertUSDToMilliunits(amount: number): number {
+  const rawValue = amount * 1000;
+  const roundedValue = Math.round(rawValue);
+  // if (rawValue !== roundedValue) {
+  //   console.warn(
+  //     '[convertUSDToMilliunits] converting to milliunits had extra digits of precision (likely floating point arithemtic error):',
+  //     {amount, rawValue, roundedValue},
+  //   );
+  // }
+  return roundedValue;
+}
+
+export function hasUnexpectedDigitsOfPrecision(
+  n: number,
+  digits: number,
+): boolean {
+  return n.toFixed(digits) !== n.toString();
 }

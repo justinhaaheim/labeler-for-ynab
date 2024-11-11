@@ -1,40 +1,29 @@
-import type {LabelTransactionMatchFinalized} from './Matching';
+import type {
+  ColumnID,
+  FieldGetterLookup,
+  GridColumnDef,
+  ParsedData,
+  ParsedDataRow,
+  ValueGetter,
+} from './DataTypes';
 
-import Box from '@mui/joy/Box';
+import LinearProgress from '@mui/joy/LinearProgress';
 import Sheet from '@mui/joy/Sheet';
-import Stack from '@mui/joy/Stack';
 import Table from '@mui/joy/Table';
 import {useState} from 'react';
 
-import {getFormattedAmount} from './Currency';
-
 type Props = {
+  columnDef: Readonly<Array<GridColumnDef>>;
   // label: string;
-  finalizedMatches: LabelTransactionMatchFinalized[];
+  data: ParsedData;
+  isRefetching?: boolean;
+  placeholder?: React.ReactNode;
+  rerenderKey?: number | string;
+  shouldDim?: (
+    row: ParsedDataRow,
+    fieldGetterLookup: FieldGetterLookup,
+  ) => boolean;
   size?: 'lg' | 'md' | 'sm';
-};
-
-const COLUMN_IDS = [
-  'labelDate',
-  'labelAmount',
-  'transactionDate',
-  'transactionPayee',
-  'newMemo',
-  'warnings',
-] as const;
-type ColumnID = (typeof COLUMN_IDS)[number];
-
-type ValueGetter = (match: LabelTransactionMatchFinalized) => unknown;
-
-type GridColumnDef = {
-  columnID: ColumnID;
-  getNode: (match: LabelTransactionMatchFinalized) => React.ReactNode;
-  getValue: ValueGetter;
-  headerName: string;
-  sx?: Record<string, number | string>;
-  // textAlign?: 'center' | 'end' | 'start';
-  truncatable?: boolean;
-  // width?: string;
 };
 
 const ROW_NO_WRAP_STYLE = {
@@ -48,101 +37,26 @@ const HEADER_STYLE = {
   cursor: 'pointer',
 };
 
-const columns: Readonly<GridColumnDef[]> = [
-  // {field: 'id', headerName: 'ID'},
-  {
-    columnID: 'labelDate',
-    getNode: (m) => m.label.date,
-    getValue: (m) => m.label.date,
-    headerName: 'Label Date',
-    sx: {width: '8em'},
-    truncatable: false,
-  },
-  // {
-  //   field: 'labelMemo',
-  //   getValue: (m) => renderLabel(m.label.memo, Infinity),
-  //   headerName: 'Label Text',
-  //   sx: {width: '15em'},
-  // },
-  {
-    columnID: 'labelAmount',
-    getNode: (m) => getFormattedAmount(m.label.amount),
-    getValue: (m) => m.label.amount,
-    // Label Amount and Transaction amount should be identical, so let's just show one
-    headerName: 'Amount',
-    sx: {textAlign: 'end', width: '7em'},
-    truncatable: false,
-  },
-  {
-    columnID: 'transactionDate',
-    getNode: (m) =>
-      m.transactionMatch != null ? m.transactionMatch.date ?? '' : '-',
-    getValue: (m) => m.transactionMatch?.date,
-    headerName: 'Matching YNAB TXN Date',
-    sx: {width: '10em'},
-    truncatable: false,
-  },
-  {
-    columnID: 'transactionPayee',
-    getNode: (m) =>
-      m.transactionMatch != null ? m.transactionMatch.payee_name ?? '' : '-',
-    getValue: (m) => m.transactionMatch?.payee_name,
-    headerName: 'Matching YNAB TXN Payee',
-    sx: {width: '9em'},
-  },
-  // {
-  //   field: 'transactionMemo',
-  //   getValue: (m) => m.transactionMatch.memo ?? '',
-  //   headerName: 'YNAB TXN Memo',
-  //   // sx: {width: '40%'},
-  // },
-  {
-    columnID: 'newMemo',
-    getNode: (m) => m.newMemo,
-    getValue: (m) => m.newMemo,
-    headerName: 'YNAB Memo + Label',
-    // sx: {width: '40%'},
-  },
-  {
-    columnID: 'warnings',
-    getNode: (m) => {
-      if (m.warnings.length <= 1) {
-        return m.warnings[0]?.message ?? '';
-      }
+const DIM_OPACITY = 0.6;
 
-      return (
-        <Stack spacing={0.5}>
-          {m.warnings.map((w, i) => (
-            <Box
-              key={String(i) + w}
-              sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{`${i + 1}) ${
-              w.message
-            }`}</Box>
-          ))}
-        </Stack>
-      );
-    },
-    getValue: (m) => m.warnings.join('; '),
-    headerName: 'Warnings',
-    sx: {width: '14em'},
-  },
-] as const;
-
-const fieldGetterLookup = columns.reduce<Record<ColumnID, ValueGetter>>(
-  (acc, col) => {
-    acc[col.columnID] = col.getValue;
-    return acc;
-  },
-  {} as Record<ColumnID, ValueGetter>,
-);
-
-export default function FinalizedMatchesDataGrid({
-  finalizedMatches,
+export default function DataTable({
+  data,
+  columnDef,
   size = 'md',
+  isRefetching,
+  rerenderKey: _rerenderKey,
+  shouldDim,
+  placeholder,
 }: Props): React.ReactElement {
-  // finalizedMatches.length > 0
-  //   ? finalizedMatches
-  //   : [{amount: 0, date: '-', id: '-', memo: '-', payee: '-'}];
+  // TODO: memoize
+  const fieldGetterLookup = columnDef.reduce<FieldGetterLookup>(
+    (acc, col) => {
+      acc[col.columnID] = col.getValue ?? ((row) => row[col.columnID]);
+      return acc;
+    },
+    {} as Record<ColumnID, ValueGetter>,
+  );
+
   const [rowIsWrapped, setRowIsWrapped] = useState<Record<string, boolean>>({});
 
   // TODO: Keep track of the list of columns clicked in order so that we can sort by multiple columns in order
@@ -151,13 +65,13 @@ export default function FinalizedMatchesDataGrid({
     columnID: ColumnID;
   } | null>(null);
 
-  const data =
+  const dataSorted =
     sortByColumn == null
-      ? finalizedMatches
-      : finalizedMatches.slice().sort((aMatch, bMatch) => {
+      ? data
+      : data.slice().sort((aMatch, bMatch) => {
           // TODO: Not sure if null coalescing to 0 is the best way to handle this
-          const a = fieldGetterLookup[sortByColumn.columnID](aMatch) ?? 0;
-          const b = fieldGetterLookup[sortByColumn.columnID](bMatch) ?? 0;
+          const a = fieldGetterLookup[sortByColumn.columnID]?.(aMatch) ?? 0;
+          const b = fieldGetterLookup[sortByColumn.columnID]?.(bMatch) ?? 0;
 
           const orderMultiplier = sortByColumn.ascending ? 1 : -1;
 
@@ -171,15 +85,42 @@ export default function FinalizedMatchesDataGrid({
         });
 
   return (
-    <Sheet sx={{borderRadius: 'sm', flexShrink: 1}} variant="outlined">
+    <Sheet
+      sx={{
+        borderRadius: 'sm',
+        flexShrink: 1,
+        overflow: 'hidden',
+        position: 'relative',
+        width: 'fit-content',
+      }}
+      variant="outlined">
+      {isRefetching && (
+        <LinearProgress
+          color="primary"
+          size="sm"
+          sx={{
+            borderRadius: 0,
+            // display: 'block',
+            left: 0,
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            zIndex: 11,
+          }}
+          value={40}
+          variant="soft"
+        />
+      )}
       <Table
         hoverRow
         size={size}
         stickyHeader
+        // stripe="odd"
         sx={{
           '--Table-headerUnderlineThickness': '1px',
-          '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
+          '--TableCell-cornerRadius': 0,
 
+          '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
           '--TableCell-paddingX': '8px',
           '--TableCell-paddingY': '4px',
 
@@ -188,14 +129,17 @@ export default function FinalizedMatchesDataGrid({
           // '--TableRow-hoverBackground': 'var(--joy-palette-background-level1)',
           '--TableRow-hoverBackground': 'var(--joy-palette-background-level1)',
 
-          minWidth: '600px',
-
           // fontSize: {md: '1rem', xs: '0.75rem'},
           overflowWrap: 'break-word',
 
           textAlign: 'start',
+
           // Ensure that multiple spaces in a row are actually rendered in HTML
           whiteSpace: 'pre-wrap',
+
+          // minWidth: '600px',
+          // width: 'auto',
+          // zIndex: 0,
         }}>
         {/* <caption>
           {
@@ -205,7 +149,7 @@ export default function FinalizedMatchesDataGrid({
 
         <thead>
           <tr>
-            {columns.map((c) => {
+            {columnDef.map((c) => {
               return (
                 <th
                   key={c.columnID}
@@ -226,8 +170,9 @@ export default function FinalizedMatchesDataGrid({
         </thead>
 
         <tbody>
-          {data.map((finalizedMatch, _rowIndex) => {
-            const rowID = finalizedMatch.label.id;
+          {dataSorted.map((row, _rowIndex) => {
+            // TODO: Use a unique ID for the key
+            const rowID = _rowIndex.toString();
             const rowShouldWrap = rowIsWrapped[rowID] ?? false;
 
             return (
@@ -256,8 +201,13 @@ export default function FinalizedMatchesDataGrid({
                     ...prev,
                     [rowID]: !prev[rowID],
                   }));
+                }}
+                style={{
+                  opacity: shouldDim?.(row, fieldGetterLookup)
+                    ? DIM_OPACITY
+                    : 1,
                 }}>
-                {columns.map((col, _colIndex) => (
+                {columnDef.map((col, _colIndex) => (
                   <td
                     key={col.headerName}
                     style={{
@@ -267,7 +217,9 @@ export default function FinalizedMatchesDataGrid({
                       ...(col.sx ?? {}),
                     }}>
                     {/* {colIndex === 0 ? String(rowIndex + 1) + ' ' : null} */}
-                    {col.getNode(finalizedMatch)}
+                    {col.getNode != null
+                      ? col.getNode(row)
+                      : fieldGetterLookup[col.columnID]?.(row)}
                   </td>
                 ))}
               </tr>
@@ -275,6 +227,7 @@ export default function FinalizedMatchesDataGrid({
           })}
         </tbody>
       </Table>
+      {placeholder}
     </Sheet>
   );
 }
