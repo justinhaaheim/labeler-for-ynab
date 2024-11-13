@@ -11,6 +11,7 @@ import {
 } from 'ynab';
 
 import isNonNullable from './isNonNullable';
+// import {getRemainingServerRequests} from './YnabHelpers';
 
 export const YNAB_MAX_MEMO_LENGTH = 200;
 
@@ -308,6 +309,8 @@ export async function undoSyncLabelsToYnab({
   // If we're just changing the memo let's queue up the actions and reuse the executeTransactionUpdates function
   const saveTransactionsWithUpdateLogInProgress: Array<SaveTransactionWithUpdateLogInProgress> =
     [];
+
+  // const remainingServerRequests = await getRemainingServerRequests(ynabAPI);
 
   await Promise.all(
     updateLogChunk.logs.map(async (log) => {

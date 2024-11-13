@@ -4,6 +4,9 @@ export const YNAB_TOKEN_LOCAL_STORAGE_KEY = 'ynab_access_token';
 export const YNAB_TOKEN_EXPIRATION_TIMESTAMP_LOCAL_STORAGE_KEY =
   YNAB_TOKEN_LOCAL_STORAGE_KEY + '_expiration';
 
+const API_BASE_URL = 'https://api.ynab.com/v1';
+const API_USER_ENDPOINT = '/user';
+
 export type YNABErrorType = {error: ynab.ErrorDetail};
 
 type APIInfo = {
@@ -172,4 +175,82 @@ export function getYNABErrorHandler(
       console.error('📡❌ Error is nullish or not an object', error);
     }
   };
+}
+
+export async function getRemainingServerRequestsManually(
+  token: string,
+): Promise<number | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${API_USER_ENDPOINT}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const remainingRequestsFraction = response.headers.get('X-Rate-Limit');
+    if (
+      remainingRequestsFraction == null ||
+      remainingRequestsFraction.length === 0
+    ) {
+      return null;
+    }
+    const remainingRequestsFractionParsed = remainingRequestsFraction
+      .split('/')
+      .map((s) => parseInt(s))
+      .filter((n) => !isNaN(n));
+
+    const [requestsMade, totalRequests] = remainingRequestsFractionParsed;
+
+    if (requestsMade == null || totalRequests == null) {
+      throw new Error(
+        'Unable to parse remaining requests fraction: ' +
+          remainingRequestsFraction,
+      );
+    }
+
+    const remainingRequests = totalRequests - requestsMade;
+    console.debug(
+      `📡🔒 Remaining requests from YNAB: ${remainingRequests} / ${totalRequests}`,
+    );
+    return remainingRequests;
+  } catch (error) {
+    console.error('📡❌ Error fetching remaining requests from YNAB:', error);
+    return null;
+  }
+}
+
+export async function getRemainingServerRequests(
+  ynabApi: ynab.API,
+): Promise<number | null> {
+  try {
+    const {raw: response} = await ynabApi.user.getUserRaw();
+    const remainingRequestsFraction = response.headers.get('X-Rate-Limit');
+    if (
+      remainingRequestsFraction == null ||
+      remainingRequestsFraction.length === 0
+    ) {
+      return null;
+    }
+    const remainingRequestsFractionParsed = remainingRequestsFraction
+      .split('/')
+      .map((s) => parseInt(s))
+      .filter((n) => !isNaN(n));
+
+    const [requestsMade, totalRequests] = remainingRequestsFractionParsed;
+
+    if (requestsMade == null || totalRequests == null) {
+      throw new Error(
+        'Unable to parse remaining requests fraction: ' +
+          remainingRequestsFraction,
+      );
+    }
+
+    const remainingRequests = totalRequests - requestsMade;
+    console.debug(
+      `📡🔒 Remaining requests from YNAB: ${remainingRequests} / ${totalRequests}`,
+    );
+    return remainingRequests;
+  } catch (error) {
+    console.error('📡❌ Error fetching remaining requests from YNAB:', error);
+    return null;
+  }
 }

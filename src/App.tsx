@@ -77,6 +77,7 @@ import {downloadAllBudgetData} from './YNABExport';
 import {
   budgetCompareFunctionForSort,
   clearTokenStorage,
+  getRemainingServerRequests,
   getYNABApi,
   getYNABErrorHandler,
 } from './YnabHelpers';
@@ -380,13 +381,6 @@ function App() {
     }&redirect_uri=${redirectUri.toString()}&response_type=token`;
     // TODO: Use history api
     window.location.replace(uri);
-    // fetch(uri, {method: 'GET', mode: 'no-cors'})
-    //   .then((response) => {
-    //     console.debug('response', response);
-    //   })
-    //   .catch((error) => {
-    //     console.debug('error', error);
-    //   });
   }, []);
 
   const cardStyle = useMemo(() => ({width: '100%'}), []);
@@ -462,20 +456,15 @@ function App() {
                       {getIsDevMode() && (
                         <Box>
                           <Button
-                            // disabled={ynabApi != null}
                             onClick={() => {
                               if (ynabApi == null) {
                                 console.warn('ynabApi is null.');
                                 return;
                               }
-                              ynabApi.user
-                                .getUser()
-                                .then((response) => {
-                                  console.debug('[getUser] response', response);
-                                })
-                                .catch((error) => {
-                                  console.debug('[getUser] error', error);
-                                });
+                              console.debug(
+                                'Checking for remaining requests from API',
+                              );
+                              getRemainingServerRequests(ynabApi);
                             }}
                             variant="solid">
                             Test Connection
