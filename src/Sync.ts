@@ -10,6 +10,7 @@ import {
   type TransactionDetail,
 } from 'ynab';
 
+// import {CustomRateLimiter} from './CustomRateLimiter';
 import isNonNullable from './isNonNullable';
 import {getRemainingServerRequests} from './YnabHelpers';
 
@@ -300,9 +301,11 @@ async function undoSyncStepViaDeleteAndRecreate({
   ynabAPI,
   log,
   budgetID,
+  rateLimiter,
 }: {
   budgetID: string;
   log: UpdateLogEntryV1;
+  rateLimiter: () => Promise<void>;
   ynabAPI: API;
 }): Promise<UpdateLogEntryV1 | null> {
   if (!log.updateSucceeded) {
@@ -340,6 +343,7 @@ async function undoSyncStepViaDeleteAndRecreate({
     const {changes: _changes, keysChanged} =
       getActualChangesFromSaveTransaction(log.transactionUpdatesApplied);
 
+    await rateLimiter();
     const deleteTransactionResponse =
       await ynabAPI.transactions.deleteTransaction(budgetID, log.transactionID);
 
@@ -362,6 +366,7 @@ async function undoSyncStepViaDeleteAndRecreate({
       ...newTransactionUpdatesToApply,
     };
 
+    await rateLimiter();
     const createTransactionResponse =
       await ynabAPI.transactions.createTransaction(budgetID, {
         transaction: newTransactionCombined,
@@ -437,6 +442,18 @@ export async function undoSyncLabelsToYnab({
     return updateLogChunkResult;
   }
 
+  // const rateLimiter = CustomRateLimiter(
+  //   1, // 1 request per unit of time (below)
+  //   {
+  //     timeUnit: 1500, // milliseconds
+  //     // uniformDistribution = true means that we'll allow 1 request per timeUnit / rps ms
+  //     uniformDistribution: true,
+  //   },
+  // );
+
+  // Since we're only doing 1 request at a time right now, we don't need to rate limit
+  const rateLimiter = async () => {};
+
   updateLogChunk.logs.forEach((log) => {
     if (!log.updateSucceeded) {
       console.debug(
@@ -471,6 +488,7 @@ export async function undoSyncLabelsToYnab({
         const undoUpdateLog = await undoSyncStepViaDeleteAndRecreate({
           budgetID,
           log,
+          rateLimiter,
           ynabAPI,
         });
 
@@ -552,9 +570,18 @@ export async function undoSyncLabelsToYnab({
         })
       : [];
 
-  const undoLogsFromDeleteAndRecreateActions: UpdateLogEntryV1[] = (
-    await Promise.all(deleteAndRecreateActions.map((action) => action()))
-  ).filter(isNonNullable);
+  // const undoLogsFromDeleteAndRecreateActions: UpdateLogEntryV1[] = (
+  //   await Promise.all(deleteAndRecreateActions.map((action) => action()))
+  // ).filter(isNonNullable);
+  const undoLogsFromDeleteAndRecreateActions: UpdateLogEntryV1[] = [];
+
+  // Let's go through these sequentially for now
+  for (let action of deleteAndRecreateActions) {
+    const result = await action();
+    if (result != null) {
+      undoLogsFromDeleteAndRecreateActions.push(result);
+    }
+  }
 
   const undoUpdateLogsCombined = [
     ...finalizedUndoUpdateLogsFromUpdates,
