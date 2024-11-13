@@ -338,7 +338,6 @@ export async function undoSyncLabelsToYnab({
       const {changes: _changes, keysChanged} =
         getActualChangesFromSaveTransaction(log.transactionUpdatesApplied);
 
-      // debugger;
       if (keysChanged.includes('subtransactions')) {
         /**
          * If there are subtransactions, we need to delete the transaction and then recreate it with the previous subtransactions
@@ -348,12 +347,14 @@ export async function undoSyncLabelsToYnab({
             'Attempting to undo sync by deleting and then reconstituting transaction...',
             log,
           );
+          /**
+           * TODO: With a large number of transactions this will overshoot the API rate limit. We need to find a way to space these out, or combine them.
+           */
           const deleteTransactionResponse =
             await ynabAPI.transactions.deleteTransaction(
               budgetID,
               log.transactionID,
             );
-          // debugger;
           const newTransactionBase = convertTransactionDetailToNewTransaction(
             deleteTransactionResponse.data.transaction,
           );
