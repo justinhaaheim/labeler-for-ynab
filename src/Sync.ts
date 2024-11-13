@@ -11,7 +11,7 @@ import {
 } from 'ynab';
 
 import isNonNullable from './isNonNullable';
-// import {getRemainingServerRequests} from './YnabHelpers';
+import {getRemainingServerRequests} from './YnabHelpers';
 
 export const YNAB_MAX_MEMO_LENGTH = 200;
 
@@ -296,6 +296,105 @@ function convertTransactionDetailToNewTransaction(
   // };
 }
 
+async function undoSyncStepViaDeleteAndRecreate({
+  ynabAPI,
+  log,
+  budgetID,
+}: {
+  budgetID: string;
+  log: UpdateLogEntryV1;
+  ynabAPI: API;
+}): Promise<UpdateLogEntryV1 | null> {
+  if (!log.updateSucceeded) {
+    console.debug(
+      `[undoSyncStepViaDeleteAndRecreate] log.updateSucceeded was false. This means there's nothing to undo.`,
+      log,
+    );
+    return null;
+  }
+
+  if (log.newTransactionDetail == null) {
+    console.error(
+      '[undoSyncStepViaDeleteAndRecreate] log.newTransactionDetail was null. This should not happen.',
+      log,
+    );
+    return null;
+  }
+
+  /**
+   * If there are subtransactions, we need to delete the transaction and then recreate it with the previous subtransactions
+   */
+  try {
+    console.log(
+      'Attempting to undo sync by deleting and then reconstituting transaction...',
+      log,
+    );
+
+    if (log.transactionUpdatesApplied == null) {
+      const message =
+        '[undoSyncStepViaDeleteAndRecreate] log.transactionUpdatesApplied was null. This should not happen.';
+      console.error(message, log);
+      throw new Error(message);
+    }
+
+    const {changes: _changes, keysChanged} =
+      getActualChangesFromSaveTransaction(log.transactionUpdatesApplied);
+
+    const deleteTransactionResponse =
+      await ynabAPI.transactions.deleteTransaction(budgetID, log.transactionID);
+
+    const newTransactionBase = convertTransactionDetailToNewTransaction(
+      deleteTransactionResponse.data.transaction,
+    );
+
+    const newTransactionUpdatesToApply =
+      keysChanged.reduce<SaveTransactionWithIdOrImportId>(
+        (acc, currentKey) => ({
+          ...acc,
+          // Get the value from the previous transaction detail so we know what to change it back to
+          [currentKey]: log.previousTransactionDetail[currentKey],
+        }),
+        {},
+      );
+
+    const newTransactionCombined = {
+      ...newTransactionBase,
+      ...newTransactionUpdatesToApply,
+    };
+
+    const createTransactionResponse =
+      await ynabAPI.transactions.createTransaction(budgetID, {
+        transaction: newTransactionCombined,
+      });
+
+    return {
+      label: log.label,
+      newTransactionDetail: createTransactionResponse.data.transaction ?? null,
+      previousTransactionDetail: deleteTransactionResponse.data.transaction,
+      transactionID: nullthrows(createTransactionResponse.data.transaction?.id),
+      transactionUpdatesApplied: newTransactionUpdatesToApply,
+      updateMethod: 'delete-and-recreate',
+      updateSucceeded: true,
+    };
+  } catch (e) {
+    console.error(
+      '[undoSyncStepViaDeleteAndRecreate] Failed to delete or recreate transaction',
+      e,
+    );
+
+    return {
+      error: e as Error,
+      label: log.label,
+      newTransactionDetail: null,
+      previousTransactionDetail: log.newTransactionDetail,
+      transactionID: log.transactionID,
+      transactionUpdatesApplied: null,
+      updateMethod: 'delete-and-recreate',
+      updateSucceeded: false,
+    };
+  }
+}
+
 export async function undoSyncLabelsToYnab({
   ynabAPI,
   updateLogChunk,
@@ -304,158 +403,146 @@ export async function undoSyncLabelsToYnab({
 
   const {accountID, budgetID} = updateLogChunk;
 
-  const undoUpdateLogs: UpdateLogEntryV1[] = [];
-
   // If we're just changing the memo let's queue up the actions and reuse the executeTransactionUpdates function
   const saveTransactionsWithUpdateLogInProgress: Array<SaveTransactionWithUpdateLogInProgress> =
     [];
 
-  // const remainingServerRequests = await getRemainingServerRequests(ynabAPI);
+  const deleteAndRecreateActions: Array<
+    () => Promise<UpdateLogEntryV1 | null>
+  > = [];
 
-  await Promise.all(
-    updateLogChunk.logs.map(async (log) => {
-      if (!log.updateSucceeded) {
-        console.debug(
-          `[undoSyncLabelsToYnab] log.updateSucceeded was false. This means there's nothing to undo.`,
+  const updateLogChunkResult = {
+    _updateLogVersion: CURRENT_UPDATE_LOG_VERSION,
+    accountID,
+    budgetID,
+    logs: [],
+    revertSourceInfo: {
+      timestamp: updateLogChunk.timestamp,
+      updateID: updateLogChunk.updateID,
+    },
+    timestamp: Date.now(),
+    type: 'undo-sync' as const,
+    updateID: uuidv4(),
+  };
+
+  const remainingServerRequestsAtStart =
+    await getRemainingServerRequests(ynabAPI);
+
+  if (remainingServerRequestsAtStart == null) {
+    console.error(
+      `[undoSyncLabelsToYnab] remainingServerRequestsAtStart was null. That should not happen. Bailing on undo sync.`,
+      remainingServerRequestsAtStart,
+    );
+    // Return the chunk with no logs included
+    return updateLogChunkResult;
+  }
+
+  updateLogChunk.logs.forEach((log) => {
+    if (!log.updateSucceeded) {
+      console.debug(
+        `[undoSyncLabelsToYnab] log.updateSucceeded was false. This means there's nothing to undo.`,
+        log,
+      );
+      return;
+    }
+
+    if (log.newTransactionDetail == null) {
+      console.warn(
+        '[undoSyncLabelsToYnab] log.newTransactionDetail was null. This should not happen.',
+        log,
+      );
+      return;
+    }
+
+    if (log.transactionUpdatesApplied == null) {
+      console.warn(
+        '[undoSyncLabelsToYnab] log.transactionUpdatesApplied was null. This should not happen.',
+        log,
+      );
+      return;
+    }
+
+    const {changes: _changes, keysChanged} =
+      getActualChangesFromSaveTransaction(log.transactionUpdatesApplied);
+
+    if (keysChanged.includes('subtransactions')) {
+      // Push a deleteAndRecreate action onto the queue
+      deleteAndRecreateActions.push(async () => {
+        const undoUpdateLog = await undoSyncStepViaDeleteAndRecreate({
+          budgetID,
           log,
-        );
-        return;
-      }
-
-      if (log.newTransactionDetail == null) {
-        console.warn(
-          '[undoSyncLabelsToYnab] log.newTransactionDetail was null. This should not happen.',
-          log,
-        );
-        return;
-      }
-
-      if (log.transactionUpdatesApplied == null) {
-        console.warn(
-          '[undoSyncLabelsToYnab] log.transactionUpdatesApplied was null. This should not happen.',
-          log,
-        );
-        return;
-      }
-
-      const {changes: _changes, keysChanged} =
-        getActualChangesFromSaveTransaction(log.transactionUpdatesApplied);
-
-      if (keysChanged.includes('subtransactions')) {
-        /**
-         * If there are subtransactions, we need to delete the transaction and then recreate it with the previous subtransactions
-         */
-        try {
-          console.log(
-            'Attempting to undo sync by deleting and then reconstituting transaction...',
-            log,
-          );
-          /**
-           * TODO: With a large number of transactions this will overshoot the API rate limit. We need to find a way to space these out, or combine them.
-           */
-          const deleteTransactionResponse =
-            await ynabAPI.transactions.deleteTransaction(
-              budgetID,
-              log.transactionID,
-            );
-          const newTransactionBase = convertTransactionDetailToNewTransaction(
-            deleteTransactionResponse.data.transaction,
-          );
-
-          const newTransactionUpdatesToApply =
-            keysChanged.reduce<SaveTransactionWithIdOrImportId>(
-              (acc, currentKey) => ({
-                ...acc,
-                // Get the value from the previous transaction detail so we know what to change it back to
-                [currentKey]: log.previousTransactionDetail[currentKey],
-              }),
-              {},
-            );
-
-          const newTransactionCombined = {
-            ...newTransactionBase,
-            ...newTransactionUpdatesToApply,
-          };
-
-          const createTransactionResponse =
-            await ynabAPI.transactions.createTransaction(budgetID, {
-              transaction: newTransactionCombined,
-            });
-
-          undoUpdateLogs.push({
-            label: log.label,
-            newTransactionDetail:
-              createTransactionResponse.data.transaction ?? null,
-            previousTransactionDetail:
-              deleteTransactionResponse.data.transaction,
-            transactionID: nullthrows(
-              createTransactionResponse.data.transaction?.id,
-            ),
-            transactionUpdatesApplied: newTransactionUpdatesToApply,
-            updateMethod: 'delete-and-recreate',
-            updateSucceeded: true,
-          });
-          return;
-        } catch (e) {
-          console.error('Failed to delete or recreate transaction', e);
-
-          undoUpdateLogs.push({
-            error: e as Error,
-            label: log.label,
-            newTransactionDetail: null,
-            previousTransactionDetail: log.newTransactionDetail,
-            transactionID: log.transactionID,
-            transactionUpdatesApplied: null,
-            updateMethod: 'delete-and-recreate',
-            updateSucceeded: false,
-          });
-          return;
-        }
-      }
-
-      /**
-       * If all we changed was the memo, then let's simply re-write over the memo
-       */
-      if (
-        log.transactionUpdatesApplied != null &&
-        log.transactionUpdatesApplied.subtransactions == null
-      ) {
-        /**
-         * NOTE: There's some type coercion going on here, because
-         * we don't *actually* know that previousTransactionDetail[key] is the
-         * correct type to assign to SaveTransactionWithIdOrImportId[key]. But it
-         * should be, so let's not worry about it.
-         */
-        const newTransactionUpdatesToApply =
-          keysChanged.reduce<SaveTransactionWithIdOrImportId>(
-            (acc, currentKey) => ({
-              ...acc,
-              // Get the value from the previous transaction detail so we know what to change it back to
-              [currentKey]: log.previousTransactionDetail[currentKey],
-            }),
-            {},
-          );
-
-        newTransactionUpdatesToApply.id = log.transactionID;
-
-        const updateLogInProgress: UpdateLogEntryInProgressV1 = {
-          label: log.label,
-          previousTransactionDetail: log.newTransactionDetail,
-          transactionID: log.transactionID,
-          transactionUpdatesApplied: newTransactionUpdatesToApply,
-          updateMethod: 'update',
-        };
-
-        saveTransactionsWithUpdateLogInProgress.push({
-          saveTransaction: newTransactionUpdatesToApply,
-          updateLogInProgress,
+          ynabAPI,
         });
 
-        return;
-      }
-    }),
+        return undoUpdateLog;
+      });
+
+      return;
+    }
+
+    /**
+     * If all we changed was the memo, then let's simply re-write over the memo
+     */
+    if (
+      log.transactionUpdatesApplied != null &&
+      log.transactionUpdatesApplied.subtransactions == null
+    ) {
+      /**
+       * NOTE: There's some type coercion going on here, because
+       * we don't *actually* know that previousTransactionDetail[key] is the
+       * correct type to assign to SaveTransactionWithIdOrImportId[key]. But it
+       * should be, so let's not worry about it.
+       */
+      const newTransactionUpdatesToApply =
+        keysChanged.reduce<SaveTransactionWithIdOrImportId>(
+          (acc, currentKey) => ({
+            ...acc,
+            // Get the value from the previous transaction detail so we know what to change it back to
+            [currentKey]: log.previousTransactionDetail[currentKey],
+          }),
+          {},
+        );
+
+      newTransactionUpdatesToApply.id = log.transactionID;
+
+      const updateLogInProgress: UpdateLogEntryInProgressV1 = {
+        label: log.label,
+        previousTransactionDetail: log.newTransactionDetail,
+        transactionID: log.transactionID,
+        transactionUpdatesApplied: newTransactionUpdatesToApply,
+        updateMethod: 'update',
+      };
+
+      saveTransactionsWithUpdateLogInProgress.push({
+        saveTransaction: newTransactionUpdatesToApply,
+        updateLogInProgress,
+      });
+
+      return;
+    }
+  });
+
+  // 1 for the grouped transaction updates, and 2 for each deleteAndRecreate action
+  const totalRequestsNeeded = 1 + deleteAndRecreateActions.length * 2;
+
+  if (totalRequestsNeeded > remainingServerRequestsAtStart) {
+    console.error(
+      `[undoSyncLabelsToYnab] ${totalRequestsNeeded} requests needed to undo sync, but only ${remainingServerRequestsAtStart} remain. Bailing.`,
+      {remainingServerRequestsAtStart, totalRequestsNeeded},
+    );
+    return updateLogChunkResult;
+  }
+
+  console.log(
+    `${totalRequestsNeeded} server requests needed to undo sync. ${remainingServerRequestsAtStart} remaining.`,
   );
 
+  console.debug(
+    `Executing transaction updates that don't require deleting and recreating...`,
+  );
+
+  // If all goes according to plan we should have at least 1 (or `requestsToReserve`) server
+  // requests left to use for this final step.
   const finalizedUndoUpdateLogsFromUpdates: UpdateLogEntryV1[] =
     saveTransactionsWithUpdateLogInProgress.length > 0
       ? await executeTransactionUpdatesAndUpdateUpdateLogs({
@@ -465,9 +552,14 @@ export async function undoSyncLabelsToYnab({
         })
       : [];
 
-  const undoUpdateLogsCombined = undoUpdateLogs.concat(
-    finalizedUndoUpdateLogsFromUpdates,
-  );
+  const undoLogsFromDeleteAndRecreateActions: UpdateLogEntryV1[] = (
+    await Promise.all(deleteAndRecreateActions.map((action) => action()))
+  ).filter(isNonNullable);
+
+  const undoUpdateLogsCombined = [
+    ...finalizedUndoUpdateLogsFromUpdates,
+    ...undoLogsFromDeleteAndRecreateActions,
+  ];
 
   console.log('undoUpdateLogsCombined', undoUpdateLogsCombined);
 
